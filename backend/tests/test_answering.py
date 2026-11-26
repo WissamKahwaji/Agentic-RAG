@@ -79,6 +79,7 @@ async def test_refusal_is_not_grounded_and_has_no_citations() -> None:
     answer = await service.answer("Capital of France?")
 
     assert not answer.grounded
+    assert answer.refused
     assert answer.citations == []
     assert answer.answer == NO_ANSWER
 

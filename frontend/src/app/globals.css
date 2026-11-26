@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/*
+ * Tokens
+ *   fog         page ground, a cool paper grey
+ *   paper       raised surfaces (evidence cards, composer)
+ *   ink         primary text
+ *   slate       secondary text, metadata
+ *   cobalt      citation markers, focus, links
+ *   highlighter the "verified" mark: a cited passage under inspection
+ *   rust        unverified answers
+ */
+@theme {
+  --color-fog: #eef1f4;
+  --color-paper: #ffffff;
+  --color-ink: #16202b;
+  --color-slate: #5c6b7a;
+  --color-rule: #d5dce3;
+  --color-cobalt: #2b50d6;
+  --color-highlighter: #f5dd5c;
+  --color-rust: #b4532a;
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html {
+  background: var(--color-fog);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-cobalt);
+  outline-offset: 2px;
+}
+
+/* The signature: a highlighter stroke that sweeps across a passage when it is inspected. */
+.highlight-sweep {
+  background-image: linear-gradient(
+    transparent 12%,
+    color-mix(in oklab, var(--color-highlighter) 70%, transparent) 12%,
+    color-mix(in oklab, var(--color-highlighter) 70%, transparent) 88%,
+    transparent 88%
+  );
+  background-repeat: no-repeat;
+  background-size: 0% 100%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background-size 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.highlight-sweep[data-active="true"] {
+  background-size: 100% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlight-sweep {
+    transition: none;
+  }
+}
+
+/* Rendered answer markdown. */
+.answer-prose {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+.answer-prose > * + * {
+  margin-top: 0.9em;
+}
+.answer-prose ul,
+.answer-prose ol {
+  padding-left: 1.25em;
+}
+.answer-prose ul {
+  list-style: disc;
+}
+.answer-prose ol {
+  list-style: decimal;
+}
+.answer-prose li + li {
+  margin-top: 0.35em;
+}
+.answer-prose strong {
+  font-weight: 600;
+}
+.answer-prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: color-mix(in oklab, var(--color-rule) 55%, transparent);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.answer-prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  background: var(--color-ink);
+  color: #e6ebf0;
+  padding: 1rem 1.1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+/* Source passages inside evidence cards: compact, secondary to the answer. */
+.evidence-prose {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: color-mix(in oklab, var(--color-ink) 85%, transparent);
+  overflow-wrap: anywhere;
+}
+.evidence-prose > * + * {
+  margin-top: 0.5em;
+}
+.evidence-prose ul {
+  list-style: disc;
+  padding-left: 1.1em;
+}
+.evidence-prose ol {
+  list-style: decimal;
+  padding-left: 1.3em;
+}
+.evidence-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+.evidence-prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--color-fog);
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  white-space: pre-wrap;
+  outline: 2px solid transparent;
+  transition: outline-color 300ms;
+}
+.evidence-prose[data-active="true"] pre {
+  outline-color: var(--color-highlighter);
+}

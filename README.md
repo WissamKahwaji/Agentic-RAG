@@ -8,9 +8,11 @@ prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** early development. Ingestion and cited question answering work end to end; the
-> chat UI is next.
+> **Status:** milestone 1 complete: ingestion, cited answers and a chat UI work end to end.
+> Retrieval quality (hybrid search, reranking) is next.
 > See [Roadmap](#roadmap).
+
+![Chat UI: an answer with numbered citation markers next to the evidence passages they point to](docs/screenshot.png)
 
 ---
 
@@ -50,8 +52,8 @@ flowchart LR
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, uv
 - **AI:** LangGraph, LangChain integrations, Ollama (`qwen2.5:7b`, `bge-m3`)
 - **Data:** PostgreSQL 17 with pgvector (HNSW)
-- **Frontend:** Next.js *(planned)*
-- **Quality:** pytest, ruff, mypy (strict), Ragas / DeepEval *(planned)*
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
+- **Quality:** pytest, ruff, mypy (strict), Vitest, ESLint, Ragas / DeepEval *(planned)*
 
 ## Getting started
 
@@ -60,6 +62,7 @@ flowchart LR
 - [uv](https://docs.astral.sh/uv/) (Python 3.12 is installed automatically)
 - Docker with Compose (Docker Desktop, Colima or OrbStack)
 - [Ollama](https://ollama.com) running locally
+- Node.js 22+
 - GNU Make
 
 ### Run locally
@@ -70,7 +73,7 @@ ollama pull qwen2.5:7b
 ollama pull bge-m3
 
 # 2. Dependencies and config
-make setup            # installs Python deps, creates .env from .env.example
+make setup            # installs Python and Node deps, creates .env from .env.example
 
 # 3. Infrastructure and schema
 make up               # Postgres + pgvector, waits until healthy
@@ -83,7 +86,10 @@ make ingest           # or: make ingest DOCS=path/to/your/docs
 # 5. API
 make dev              # http://localhost:8000  ·  interactive docs at /docs
 
-# 6. Ask (in another terminal)
+# 6. Chat UI (in another terminal)
+make web              # http://localhost:3000
+
+# or ask from the terminal
 make ask Q="How do I create an HNSW index?"
 ```
 
@@ -156,6 +162,19 @@ question ──► embed ──► top-k cosine search (HNSW) ──► numbered
 }
 ```
 
+## Chat UI
+
+The UI is built for checking answers, not just reading them.
+
+- Each claim in an answer carries a numbered marker. Hovering or focusing a marker highlights the
+  exact passage it points to in the evidence column; clicking pins it.
+- Evidence cards show the source file, location (page or heading path), similarity to the
+  question, and the passage itself, rendered as Markdown for Markdown sources.
+- Answers that cite nothing are flagged as unverified; questions the documents can't answer say so.
+- The browser only talks to Next.js Route Handlers (`/api/ask`, `/api/documents`), which forward
+  to the FastAPI service server-side: no CORS, no backend URL in the client, and failures are
+  translated into actionable messages.
+
 ## API
 
 | Endpoint | Description |
@@ -168,7 +187,7 @@ question ──► embed ──► top-k cosine search (HNSW) ──► numbered
 
 ```bash
 make help        # list all targets
-make check       # lint + type-check + unit tests (what CI runs)
+make check       # backend + frontend lint, type-check, unit tests (what CI runs)
 make test-all    # also runs integration tests against the live stack
 make format      # auto-fix lint and formatting
 ```
@@ -193,6 +212,11 @@ Project layout:
 │   ├── migrations/          # Alembic migrations
 │   └── tests/
 ├── scripts/                 # sample-corpus download
+├── frontend/                # Next.js chat UI
+│   └── src/
+│       ├── app/             # page, layout, /api route handlers (proxy to FastAPI)
+│       ├── components/      # chat, turn, evidence card, composer
+│       └── lib/             # API types, citation-marker parsing
 ├── docker-compose.yml       # Postgres + pgvector
 ├── Makefile
 └── .env.example
@@ -201,10 +225,10 @@ Project layout:
 ## Roadmap
 
 - [x] **Foundation:** FastAPI service, typed config, Postgres + pgvector, migrations, health checks, CI-ready tooling
-- [ ] **Milestone 1: Cited RAG**
+- [x] **Milestone 1: Cited RAG**
   - [x] Document ingestion: load, chunk, embed, store; idempotent re-ingest
   - [x] Vector retrieval and grounded answers with verified citations
-  - [ ] Minimal chat UI
+  - [x] Chat UI with inspectable citations
 - [ ] **Milestone 2: Retrieval quality:** hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [ ] **Milestone 3: Agentic graph:** query rewriting, document grading, retry on weak evidence, answer self-check, all with bounded loops
 - [ ] **Milestone 4: Evaluation:** Ragas / DeepEval suite with a versioned golden dataset; faithfulness, answer relevancy, context precision/recall

@@ -37,6 +37,7 @@ class Timings(BaseModel):
 class Answer(BaseModel):
     answer: str
     grounded: bool = Field(description="True when the answer cites at least one valid source.")
+    refused: bool = Field(description="True when the sources did not contain an answer.")
     citations: list[Citation]
     model: str
     prompt: str = Field(description="Prompt name and version, e.g. grounded_answer@v1.")
@@ -89,6 +90,7 @@ class AnswerService:
         return Answer(
             answer=text,
             grounded=bool(citations) and not refused,
+            refused=refused,
             citations=[] if refused else citations,
             model=self._llm.model,
             prompt=f"{GROUNDED_ANSWER.name}@v{GROUNDED_ANSWER.version}",

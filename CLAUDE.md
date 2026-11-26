@@ -13,7 +13,7 @@ graph (query rewriting, document grading, retries, answer self-check) with measu
 | LLM          | Ollama locally (`qwen2.5:7b`); hosted Groq/Gemini behind one interface |
 | Embeddings   | `bge-m3` via Ollama (1024 dims)                                       |
 | Storage      | Postgres 17 + pgvector, SQLAlchemy 2 async + psycopg 3, Alembic       |
-| Frontend     | Next.js (`frontend/`, not yet created)                                |
+| Frontend     | Next.js 16 App Router, React 19, TS, Tailwind 4 (`frontend/`)         |
 | Quality      | pytest, Ragas/DeepEval evals, ruff, mypy --strict                     |
 
 Ollama runs **natively on the host** (Metal GPU). Only Postgres runs in Docker.
@@ -36,6 +36,9 @@ backend/src/agentic_rag/   application package
   api/                     routers + FastAPI dependencies
 backend/migrations/        Alembic (revision ids are sequential: 0001, 0002, ...)
 backend/tests/             pytest; `integration` marker = needs live stack
+frontend/src/app/          page + /api/* Route Handlers that proxy to FastAPI
+frontend/src/components/   chat UI (client components)
+frontend/src/lib/          API types (mirror backend Pydantic models), citation parsing
 docker-compose.yml         Postgres + pgvector
 ```
 
@@ -49,7 +52,8 @@ make corpus     # download public sample docs into data/raw (git-ignored)
 make ingest     # ingest data/raw (or DOCS=path)
 make dev        # API on :8000 with reload; docs at /docs
 make ask Q="…"  # call POST /ask on the running API
-make check      # lint + typecheck + unit tests  <- must pass before any task is "done"
+make web        # chat UI on :3000 (needs `make dev`)
+make check      # backend + frontend lint, types, unit tests  <- must pass before "done"
 make test-all   # includes integration tests (needs `make up` + Ollama)
 ```
 

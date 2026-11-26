@@ -15,7 +15,8 @@ Run from the repo root, in order, and stop at the first failure to fix it:
    - `curl -s localhost:11434/api/tags` responds (else Ollama is not running)
    - `make migrate`
    - `make test-all`
-5. If the change touches the API surface, start `make dev` in the background, call the
+5. If the change touches `frontend/`: `make web-check`, then `cd frontend && npm run build`.
+6. If the change touches the API surface, start `make dev` in the background, call the
    affected endpoints with `curl`, then stop the server.
 
 Report as a short table: step, result, and the exact error output for anything that failed.

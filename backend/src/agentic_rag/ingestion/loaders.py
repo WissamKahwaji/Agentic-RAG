@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from langchain_text_splitters import MarkdownHeaderTextSplitter
-from pypdf import PdfReader
+from pypdf import PageObject, PdfReader
 
 MARKDOWN_SUFFIXES = {".md", ".markdown"}
 TEXT_SUFFIXES = {".txt"}
@@ -85,10 +85,28 @@ def _load_pdf(path: Path) -> tuple[str | None, list[Section]]:
     sections = [
         Section(text=text, page=number)
         for number, page in enumerate(reader.pages, start=1)
-        if (text := _normalize_whitespace(page.extract_text() or ""))
+        if (text := _normalize_pdf_text(page.extract_text() or ""))
     ]
-    meta_title = reader.metadata.title if reader.metadata else None
-    return (meta_title.strip() if meta_title and meta_title.strip() else None), sections
+    meta_title = (reader.metadata.title or "").strip() if reader.metadata else ""
+    title = meta_title or (_largest_text(reader.pages[0]) if reader.pages else None)
+    return title, sections
+
+
+def _largest_text(page: PageObject) -> str | None:
+    """Best-effort title: the largest horizontal text on the page (PDF metadata is often empty)."""
+    pieces: list[tuple[float, str]] = []
+
+    def visit(text: str, cm: list[float], tm: list[float], font: object, size: float) -> None:
+        # tm is the text matrix; skip rotated text such as arXiv's vertical margin stamp.
+        if text.strip() and tm[1] == 0 and tm[2] == 0:
+            pieces.append((round(size * tm[3], 1), text))
+
+    page.extract_text(visitor_text=visit)
+    if not pieces:
+        return None
+    largest = max(size for size, _ in pieces)
+    title = " ".join(" ".join(t for s, t in pieces if s == largest).split())
+    return title if 3 <= len(title) <= 200 else None
 
 
 def _load_markdown(text: str) -> tuple[str | None, list[Section]]:
@@ -107,8 +125,13 @@ def _clean_heading(text: str) -> str:
     return _HEADING_ATTRS.sub("", text).strip()
 
 
-def _normalize_whitespace(text: str) -> str:
-    # PDF extraction yields ragged spacing; collapse runs but keep paragraph breaks.
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
+def _normalize_pdf_text(text: str) -> str:
+    """Undo the PDF's visual line wrapping so sentences are contiguous.
+
+    PDF text arrives as lines as they were *laid out*, not as written: a sentence is broken at
+    every column edge and long words are hyphenated. Left as-is, chunk boundaries and embeddings
+    see fragments, and passages render with ragged breaks.
+    """
+    text = re.sub(r"([a-z])-\n([a-z])", r"\1\2", text)  # re-join hyphenated words
+    text = re.sub(r"[ \t]*\n[ \t]*", " ", text)  # wrapped lines -> one flowing paragraph
+    return re.sub(r"[ \t]{2,}", " ", text).strip()

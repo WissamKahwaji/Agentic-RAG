@@ -1,0 +1,191 @@
+"use client";
+
+import { type ComponentProps, type Ref, useMemo, useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import { CitationContext, type CitationState, useCitations } from "@/components/citation-context";
+import { EvidenceCard } from "@/components/evidence-card";
+import { citationNumber, linkCitations } from "@/lib/citations";
+import type { Answer } from "@/lib/types";
+
+export type TurnState = {
+  id: string;
+  question: string;
+  status: "pending" | "done" | "error";
+  answer?: Answer;
+  error?: string;
+};
+
+export function Turn({ turn, ref }: { turn: TurnState; ref?: Ref<HTMLElement> }) {
+  // `hovered` follows the pointer/focus; `pinned` sticks after a click until clicked again.
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [pinned, setPinned] = useState<number | null>(null);
+  const answer = turn.answer;
+  const citations = useMemo(() => answer?.citations ?? [], [answer]);
+
+  const state: CitationState = useMemo(
+    () => ({
+      citations,
+      active: hovered ?? pinned,
+      hover: setHovered,
+      pin: (n: number) => {
+        setPinned((current) => (current === n ? null : n));
+        document
+          .getElementById(evidenceId(turn.id, n))
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      },
+    }),
+    [citations, hovered, pinned, turn.id],
+  );
+
+  return (
+    <CitationContext value={state}>
+      <article ref={ref} className="scroll-mt-6 border-b border-rule py-10 last:border-b-0">
+        <h2 className="max-w-3xl font-display text-2xl leading-tight font-medium tracking-tight sm:text-[1.9rem]">
+          {turn.question}
+        </h2>
+
+        <div className="mt-6 grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:gap-10">
+          <div className="min-w-0">
+            {turn.status === "pending" && <Pending />}
+            {turn.status === "error" && <ErrorNotice message={turn.error} />}
+            {answer && (
+              <>
+                <AnswerBody answer={answer} />
+                <GroundingNote answer={answer} />
+                <Meta answer={answer} />
+              </>
+            )}
+          </div>
+
+          {citations.length > 0 && (
+            <aside aria-label="Evidence" className="min-w-0">
+              <div className="md:sticky md:top-6">
+                <p className="mb-3 font-mono text-xs tracking-wide text-slate uppercase">
+                  Evidence · {citations.length} {citations.length === 1 ? "passage" : "passages"}
+                </p>
+                <ol className="flex flex-col gap-3">
+                  {citations.map((c) => (
+                    <li key={c.number}>
+                      <EvidenceCard id={evidenceId(turn.id, c.number)} citation={c} />
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </aside>
+          )}
+        </div>
+      </article>
+    </CitationContext>
+  );
+}
+
+function evidenceId(turnId: string, n: number) {
+  return `evidence-${turnId}-${n}`;
+}
+
+function AnswerBody({ answer }: { answer: Answer }) {
+  const markdown = useMemo(
+    () => linkCitations(answer.answer, answer.citations.map((c) => c.number)),
+    [answer],
+  );
+  return (
+    <div className="answer-prose max-w-[68ch]">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={ANSWER_COMPONENTS}>
+        {markdown}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function AnswerLink({ href, children }: ComponentProps<"a">) {
+  const n = citationNumber(href);
+  if (n === null) {
+    return (
+      <a href={href} className="text-cobalt underline underline-offset-2">
+        {children}
+      </a>
+    );
+  }
+  return <CitationMarker n={n} />;
+}
+
+function CitationMarker({ n }: { n: number }) {
+  const { citations, active, hover, pin } = useCitations();
+  const citation = citations.find((c) => c.number === n);
+  const isActive = active === n;
+  return (
+    <button
+      type="button"
+      aria-label={`Source ${n}: ${citation?.title ?? ""}, ${citation?.location ?? ""}`}
+      aria-pressed={isActive}
+      onMouseEnter={() => hover(n)}
+      onMouseLeave={() => hover(null)}
+      onFocus={() => hover(n)}
+      onBlur={() => hover(null)}
+      onClick={() => pin(n)}
+      className={`mx-[0.1em] inline-flex h-[1.35em] min-w-[1.35em] -translate-y-[0.12em] items-center justify-center rounded px-1 align-middle font-mono text-[0.7em] font-medium transition-colors ${
+        isActive ? "bg-highlighter text-ink" : "bg-cobalt/10 text-cobalt hover:bg-cobalt/20"
+      }`}
+    >
+      {n}
+    </button>
+  );
+}
+
+// Module-level so the component types are stable across renders (see citation-context.tsx).
+const ANSWER_COMPONENTS: Components = {
+  a: ({ href, children }) => <AnswerLink href={href}>{children}</AnswerLink>,
+};
+
+function GroundingNote({ answer }: { answer: Answer }) {
+  if (answer.grounded) return null;
+  if (answer.refused) {
+    return (
+      <p className="mt-5 max-w-[68ch] border-l-2 border-rule pl-3 text-sm text-slate">
+        No passage in the indexed documents answers this. Add documents that cover it and run{" "}
+        <code className="font-mono">make ingest</code>.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-5 max-w-[68ch] border-l-2 border-rust pl-3 text-sm text-rust">
+      This answer cites no passages, so it can&apos;t be checked. Treat it as unverified.
+    </p>
+  );
+}
+
+function Meta({ answer }: { answer: Answer }) {
+  const seconds = (answer.timings.generation_ms / 1000).toFixed(1);
+  return (
+    <p className="mt-6 font-mono text-[11px] text-slate">
+      {answer.model} · {answer.prompt} · retrieved in {answer.timings.retrieval_ms} ms · answered
+      in {seconds} s
+    </p>
+  );
+}
+
+function Pending() {
+  return (
+    <div role="status" className="max-w-[68ch]">
+      <p className="font-mono text-xs text-slate">Finding passages and drafting an answer…</p>
+      <div className="mt-4 flex flex-col gap-3" aria-hidden>
+        {["w-full", "w-11/12", "w-4/6"].map((w) => (
+          <div
+            key={w}
+            className={`h-3 animate-pulse rounded bg-rule motion-reduce:animate-none ${w}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ErrorNotice({ message }: { message?: string }) {
+  return (
+    <p role="alert" className="max-w-[68ch] border-l-2 border-rust pl-3 text-rust">
+      {message ?? "Something went wrong."}
+    </p>
+  );
+}

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from agentic_rag.ingestion.loaders import UnsupportedFileTypeError, load_file
+from agentic_rag.ingestion.loaders import UnsupportedFileTypeError, _normalize_pdf_text, load_file
 
 MARKDOWN = """# Vector Search { #vector-search }
 
@@ -73,3 +73,11 @@ def test_unsupported_suffix_raises(tmp_path: Path) -> None:
 
     with pytest.raises(UnsupportedFileTypeError):
         load_file(path)
+
+
+def test_pdf_text_is_unwrapped_and_dehyphenated() -> None:
+    raw = "Retrieval aug-\nmented models  combine\nparametric and\n  non-parametric memory."
+
+    assert _normalize_pdf_text(raw) == (
+        "Retrieval augmented models combine parametric and non-parametric memory."
+    )
