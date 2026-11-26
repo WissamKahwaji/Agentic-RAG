@@ -12,6 +12,16 @@ export type Citation = {
   score: number;
 };
 
+export type TraceStep = {
+  step: "condense" | "retrieve" | "grade" | "reformulate" | "generate" | "self_check" | "refuse";
+  ms: number;
+  detail: string;
+};
+
+export type SelfCheck = { passed: boolean; unsupported_claims: string[] };
+
+export type HistoryTurn = { question: string; answer: string };
+
 export type Answer = {
   answer: string;
   grounded: boolean;
@@ -20,6 +30,9 @@ export type Answer = {
   model: string;
   prompt: string;
   timings: { retrieval_ms: number; generation_ms: number };
+  search_query: string | null;
+  self_check: SelfCheck | null;
+  trace: TraceStep[];
 };
 
 export type DocumentSummary = {

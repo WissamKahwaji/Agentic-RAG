@@ -1,6 +1,8 @@
 """Deterministic test doubles for the model and retrieval protocols."""
 
 import uuid
+from collections.abc import Callable
+from typing import Any
 
 from agentic_rag.llm import ChatMessage, LLMResult
 from agentic_rag.retrieval import RetrievedChunk
@@ -33,12 +35,25 @@ class FakeRetriever:
 
 
 class FakeLLM:
+    """Replies with a fixed string, or with `reply(messages, json_schema)` when it is callable."""
+
     model = "fake-llm"
 
-    def __init__(self, reply: str) -> None:
+    def __init__(
+        self, reply: str | Callable[[list[ChatMessage], dict[str, Any] | None], str]
+    ) -> None:
         self.reply = reply
         self.received: list[list[ChatMessage]] = []
+        self.schemas: list[dict[str, Any] | None] = []
 
-    async def chat(self, messages: list[ChatMessage], *, temperature: float = 0.0) -> LLMResult:
+    async def chat(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        json_schema: dict[str, Any] | None = None,
+    ) -> LLMResult:
         self.received.append(messages)
-        return LLMResult(text=self.reply, model=self.model)
+        self.schemas.append(json_schema)
+        text = self.reply(messages, json_schema) if callable(self.reply) else self.reply
+        return LLMResult(text=text, model=self.model)

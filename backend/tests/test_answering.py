@@ -1,4 +1,10 @@
-from agentic_rag.answering import AnswerService, is_refusal, resolve_citations
+from agentic_rag.answering import (
+    AnswerService,
+    finalize_answer,
+    is_refusal,
+    normalize_code_fences,
+    resolve_citations,
+)
 from agentic_rag.prompts import CITATION_REMINDER, NO_ANSWER, grounded_answer_user_message
 from tests.fakes import FakeLLM, FakeRetriever, make_chunk
 
@@ -33,6 +39,8 @@ def test_resolve_citations_handles_grouped_markers() -> None:
 
 def test_is_refusal_tolerates_case_and_trailing_punctuation() -> None:
     assert is_refusal("i don't know based on the provided documents")
+    assert is_refusal("I don[1]'t know based on the provided documents. The sources discuss X.")
+    assert is_refusal("I don\u2019t know based on the\nprovided documents.")
     assert not is_refusal("HNSW is a graph index [1].")
 
 
@@ -101,3 +109,19 @@ async def test_top_k_override_is_passed_to_retriever() -> None:
     await service.answer("q?", top_k=2)
 
     assert retriever.calls == [("q?", 2)]
+
+
+def test_markers_on_a_closing_fence_move_to_their_own_line() -> None:
+    text = "Run:\n```sql\nSELECT 1;\n``` [2].\nMore text [1]."
+
+    assert normalize_code_fences(text) == "Run:\n```sql\nSELECT 1;\n```\n\n[2]\nMore text [1]."
+
+
+def test_finalize_answer_keeps_citations_after_code_blocks() -> None:
+    chunks = [make_chunk("a"), make_chunk("b")]
+
+    text, citations, refused = finalize_answer("```sql\nSELECT 1;\n``` [2]", chunks)
+
+    assert text.endswith("```\n\n[2]")
+    assert [c.number for c in citations] == [2]
+    assert not refused

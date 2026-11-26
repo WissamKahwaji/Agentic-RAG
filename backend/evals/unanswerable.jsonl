@@ -1,0 +1,12 @@
+{"id": "un-pgv-gpu", "question": "Does pgvector support building indexes on the GPU?"}
+{"id": "un-pgv-diskann", "question": "Does pgvector support the DiskANN index type?"}
+{"id": "un-pgv-elasticsearch", "question": "How do I keep pgvector embeddings in sync with Elasticsearch?"}
+{"id": "un-pgv-mongodb", "question": "How do I store vectors in MongoDB Atlas?"}
+{"id": "un-fa-cors", "question": "How do I enable CORS for a FastAPI app?"}
+{"id": "un-fa-background", "question": "How do I run a background task after returning a response in FastAPI?"}
+{"id": "un-fa-websocket", "question": "How do I add a WebSocket endpoint in FastAPI?"}
+{"id": "un-fa-ratelimit", "question": "How do I rate-limit requests to a FastAPI endpoint?"}
+{"id": "un-fa-celery", "question": "How do I schedule periodic jobs with Celery in a FastAPI project?"}
+{"id": "un-rag-learning-rate", "question": "What learning rate was used to fine-tune RAG?"}
+{"id": "un-rag-gpt4", "question": "How does RAG compare with GPT-4 on Natural Questions?"}
+{"id": "un-offtopic", "question": "What is the capital of France?"}

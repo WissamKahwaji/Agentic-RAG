@@ -1,15 +1,15 @@
 # Agentic RAG
 
 A retrieval-augmented generation (RAG) service that answers questions over your documents and
-**cites the exact passages it used**. It starts as a classic retrieve-then-generate pipeline and
+**cites the exact passages it used**, then verifies each cited claim before answering. It starts as a classic retrieve-then-generate pipeline and
 evolves into an agentic workflow that rewrites queries, grades retrieved evidence, retries when
 evidence is weak, and checks its own answer before returning it. Every change to retrieval or
 prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** milestones 1-2 complete: cited answers, chat UI, and measured hybrid retrieval
-> with reranking. The agentic graph is next.
+> **Status:** milestones 1-3 complete: cited answers, chat UI, measured hybrid retrieval with
+> reranking, and an agentic graph with self-checking. A full evaluation suite is next.
 > See [Roadmap](#roadmap).
 
 ![Chat UI: an answer with numbered citation markers next to the evidence passages they point to](docs/screenshot.png)
@@ -50,7 +50,7 @@ flowchart LR
 ## Tech stack
 
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, uv
-- **AI:** Ollama (`qwen2.5:7b`, `bge-m3`), `bge-reranker-v2-m3` cross-encoder (sentence-transformers, Apple MPS), LangGraph *(planned)*
+- **AI:** LangGraph, Ollama (`qwen2.5:7b`, `bge-m3`), `bge-reranker-v2-m3` cross-encoder (sentence-transformers, Apple MPS)
 - **Data:** PostgreSQL 17: pgvector (HNSW) for semantic search, `tsvector` + GIN for keyword search
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - **Quality:** pytest, ruff, mypy (strict), Vitest, ESLint, Ragas / DeepEval *(planned)*
@@ -116,6 +116,9 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 | `LLM_NUM_CTX` | `8192` | Model context window; Ollama's default is too small for RAG prompts |
 | `RETRIEVAL_MODE` | `hybrid+rerank` | Retrieval pipeline: `dense`, `keyword`, `hybrid`, `dense+rerank`, `hybrid+rerank` |
 | `RERANK_CANDIDATES` | `10` | First-stage results the reranker re-orders |
+| `ANSWER_MODE` | `agentic` | `agentic` (LangGraph agent) or `simple` (one retrieve-generate pass) |
+| `RELEVANCE_THRESHOLD` | `0.05` | Reranker score a passage needs to reach the answer step |
+| `SELF_CHECK` | `true` | Verify cited claims after generating |
 
 ## Ingestion
 
@@ -166,6 +169,69 @@ On this small, clean corpus, dense retrieval with a strong embedding model is al
 baseline. Hybrid search mainly helps identifier-style questions, and reranking gives the best
 first result. The pipeline is a setting (`RETRIEVAL_MODE`), so it can be re-chosen as the corpus
 grows.
+
+## Agent
+
+With `ANSWER_MODE=agentic` (the default), answering runs as a LangGraph state machine:
+
+```mermaid
+flowchart LR
+    S([question + history]) --> C[condense<br/>follow-up → standalone query]
+    C --> R[retrieve<br/>hybrid, 10 candidates]
+    R --> G[grade<br/>cross-encoder ≥ 0.05]
+    G -- relevant passages --> W[generate<br/>grounded, cited]
+    G -- none, retries left --> F[reformulate<br/>new query] --> R
+    G -- none, no retries --> X([decline])
+    W --> V[self-check<br/>verify each cited claim]
+    V -- unsupported, attempts left --> W
+    V --> E([answer + trace])
+```
+
+- **Condense** turns "What about IVFFlat?" into "How do I create an IVFFlat index?" using the
+  conversation, so follow-up questions retrieve the right passages.
+- **Grade** keeps passages the cross-encoder scores at or above 0.05, a threshold calibrated on
+  labelled questions (`make eval-grading`). If none pass, the agent **reformulates** the query and
+  searches again, then **declines** without calling the generator.
+- **Self-check** splits the answer into cited claims and asks one narrow yes/no question per claim,
+  showing only the sources that claim cites. Unsupported claims trigger one revision. If they
+  survive it, the answer is returned with those claims flagged.
+- Every loop is bounded by settings (`MAX_RETRIEVAL_ATTEMPTS`, `MAX_GENERATION_ATTEMPTS`), and
+  every response includes a `trace` of the steps taken, shown in the UI.
+
+![Follow-up question with the rewritten query, a flagged mis-citation, and the step trace](docs/agent-trace.png)
+
+### What the measurements showed
+
+**Self-check design** (`make eval-selfcheck`). Each real answer is checked as-is and with one
+planted false claim:
+
+| Self-check | false alarms on real answers | planted false claims caught |
+| --- | --- | --- |
+| holistic: "list every unsupported claim" | 59% | 100% |
+| **per-claim yes/no** (used) | **18%** | **100%** |
+
+A 7B model is a poor auditor of a whole answer but a reasonable judge of one claim against one
+passage.
+
+**Simple vs agentic, end to end** (`make eval-answers`, 34 answerable + 12 unanswerable questions):
+
+| Pipeline | answered | correctly declined | p50 / p90 latency |
+| --- | --- | --- | --- |
+| simple (retrieve → generate) | 34 / 34 | 12 / 12 | 1.5 s / 3.9 s |
+| agentic | 31 / 34 | 12 / 12 | 1.6 s / 4.6 s |
+
+On this small, single-topic corpus, the simple pipeline already declines well, so the agent does
+not raise headline numbers. Its value shows in the cases behind them:
+
+- One of the agent's three declines replaced a **confidently wrong** simple answer. The simple
+  pipeline misreported RAG's FEVER accuracy; the self-check caught the unsupported numbers and
+  the agent declined instead.
+- A retry with a reformulated query rescued a question where the first search found nothing
+  relevant.
+- Follow-up questions work at all only in the agentic pipeline (not in the table above).
+- Answers that survive with unsupported claims are flagged instead of presented as verified.
+
+The cost is a longer tail: a revision means a second generation pass.
 
 ## Answering
 
@@ -244,7 +310,8 @@ Project layout:
 │   │   ├── search.py        # builds the pipeline from RETRIEVAL_MODE
 │   │   ├── evals/           # retrieval metrics and eval runner
 │   │   ├── prompts.py       # versioned prompt templates
-│   │   ├── answering.py     # retrieve -> generate -> verify citations
+│   │   ├── answering.py     # answer models, citation verification, simple pipeline
+│   │   ├── agent/           # LangGraph agent graph and per-claim self-check
 │   │   ├── ingestion/       # loaders, chunking, pipeline, CLI
 │   │   └── api/             # HTTP routers and dependencies
 │   ├── evals/               # golden datasets and results
@@ -269,7 +336,7 @@ Project layout:
   - [x] Vector retrieval and grounded answers with verified citations
   - [x] Chat UI with inspectable citations
 - [x] **Milestone 2: Retrieval quality:** labelled retrieval eval, hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
-- [ ] **Milestone 3: Agentic graph:** query rewriting, document grading, retry on weak evidence, answer self-check, all with bounded loops
+- [x] **Milestone 3: Agentic graph:** follow-up condensing, calibrated passage grading, query reformulation, per-claim self-check, bounded loops, step trace
 - [ ] **Milestone 4: Evaluation:** Ragas / DeepEval suite with a versioned golden dataset; faithfulness, answer relevancy, context precision/recall
 - [ ] **Milestone 5: Production:** containerized deploy, hosted LLM provider, tracing with self-hosted Langfuse
 

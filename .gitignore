@@ -32,3 +32,6 @@ data/raw/
 
 # Claude Code (local, per-user)
 .claude/settings.local.json
+
+# Eval run outputs (large, per-run)
+backend/evals/results/

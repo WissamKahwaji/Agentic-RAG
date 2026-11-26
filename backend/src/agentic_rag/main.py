@@ -6,15 +6,17 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agentic_rag import __version__, db
-from agentic_rag.answering import AnswerService
+from agentic_rag.agent import AgentAnswerService, AgentConfig
+from agentic_rag.answering import AnswerService, QuestionAnswerer
 from agentic_rag.api import ask, documents, health
 from agentic_rag.config import Settings, get_settings
-from agentic_rag.embeddings import OllamaEmbedder
-from agentic_rag.llm import OllamaProvider
+from agentic_rag.embeddings import Embedder, OllamaEmbedder
+from agentic_rag.llm import LLMProvider, OllamaProvider
 from agentic_rag.models import EMBEDDING_DIM
-from agentic_rag.reranking import CrossEncoderReranker
+from agentic_rag.reranking import CrossEncoderReranker, Reranker
 from agentic_rag.search import build_retriever
 
 
@@ -22,6 +24,46 @@ def configure_logging(level: str) -> None:
     logging.basicConfig(
         level=level.upper(),
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    )
+
+
+async def build_answer_service(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    embedder: Embedder,
+    llm: LLMProvider,
+    reranker: Reranker | None = None,
+) -> QuestionAnswerer:
+    needs_reranker = settings.answer_mode == "agentic" or "rerank" in settings.retrieval_mode
+    if needs_reranker and reranker is None:
+        model = CrossEncoderReranker(settings.reranker_model)
+        await model.warm_up()  # load the model now, so the first question doesn't pay for it
+        reranker = model
+
+    if settings.answer_mode == "agentic":
+        assert reranker is not None
+        return AgentAnswerService(
+            # The agent grades passages itself, so it takes the first-stage retriever only.
+            retriever=build_retriever("hybrid", session_factory, embedder, settings),
+            reranker=reranker,
+            llm=llm,
+            top_k=settings.retrieval_top_k,
+            config=AgentConfig(
+                candidates=settings.rerank_candidates,
+                relevance_threshold=settings.relevance_threshold,
+                max_retrieval_attempts=settings.max_retrieval_attempts,
+                max_generation_attempts=settings.max_generation_attempts,
+                self_check=settings.self_check,
+                temperature=settings.llm_temperature,
+            ),
+        )
+    return AnswerService(
+        retriever=build_retriever(
+            settings.retrieval_mode, session_factory, embedder, settings, reranker
+        ),
+        llm=llm,
+        top_k=settings.retrieval_top_k,
+        temperature=settings.llm_temperature,
     )
 
 
@@ -49,18 +91,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         llm = OllamaProvider(
             app.state.http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
         )
-        reranker = None
-        if "rerank" in settings.retrieval_mode:
-            reranker = CrossEncoderReranker(settings.reranker_model)
-            # Load the model now, so the first question doesn't pay for it.
-            await reranker.warm_up()
-        app.state.answer_service = AnswerService(
-            retriever=build_retriever(
-                settings.retrieval_mode, app.state.session_factory, embedder, settings, reranker
-            ),
-            llm=llm,
-            top_k=settings.retrieval_top_k,
-            temperature=settings.llm_temperature,
+        app.state.answer_service = await build_answer_service(
+            settings, app.state.session_factory, embedder, llm
         )
         try:
             yield

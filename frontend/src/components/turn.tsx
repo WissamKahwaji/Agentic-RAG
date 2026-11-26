@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { CitationContext, type CitationState, useCitations } from "@/components/citation-context";
 import { EvidenceCard } from "@/components/evidence-card";
 import { citationNumber, linkCitations } from "@/lib/citations";
-import type { Answer } from "@/lib/types";
+import type { Answer, TraceStep } from "@/lib/types";
 
 export type TurnState = {
   id: string;
@@ -52,9 +52,15 @@ export function Turn({ turn, ref }: { turn: TurnState; ref?: Ref<HTMLElement> })
             {turn.status === "error" && <ErrorNotice message={turn.error} />}
             {answer && (
               <>
+                {answer.search_query && (
+                  <p className="mb-3 font-mono text-xs text-slate">
+                    Searched for: {answer.search_query}
+                  </p>
+                )}
                 <AnswerBody answer={answer} />
                 <GroundingNote answer={answer} />
                 <Meta answer={answer} />
+                <Trace answer={answer} />
               </>
             )}
           </div>
@@ -141,6 +147,19 @@ const ANSWER_COMPONENTS: Components = {
 
 function GroundingNote({ answer }: { answer: Answer }) {
   if (answer.grounded) return null;
+  const check = answer.self_check;
+  if (check && !check.passed) {
+    return (
+      <div className="mt-5 max-w-[68ch] border-l-2 border-rust pl-3 text-sm text-rust">
+        <p>The self-check couldn&apos;t match these claims to their sources. Verify them before relying on them:</p>
+        <ul className="mt-2 list-disc pl-5">
+          {check.unsupported_claims.map((claim) => (
+            <li key={claim}>{claim}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
   if (answer.refused) {
     return (
       <p className="mt-5 max-w-[68ch] border-l-2 border-rule pl-3 text-sm text-slate">
@@ -163,6 +182,42 @@ function Meta({ answer }: { answer: Answer }) {
       {answer.model} · {answer.prompt} · retrieved in {answer.timings.retrieval_ms} ms · answered
       in {seconds} s
     </p>
+  );
+}
+
+const STEP_LABELS: Record<TraceStep["step"], string> = {
+  condense: "Rewrite follow-up",
+  retrieve: "Search",
+  grade: "Grade passages",
+  reformulate: "Try another query",
+  generate: "Write answer",
+  self_check: "Check claims",
+  refuse: "Decline",
+};
+
+function Trace({ answer }: { answer: Answer }) {
+  if (answer.trace.length === 0) return null;
+  return (
+    <details className="group mt-3 max-w-[68ch]">
+      <summary className="cursor-pointer font-mono text-[11px] text-slate select-none hover:text-ink">
+        How this answer was made · {answer.trace.length} steps
+      </summary>
+      <ol className="mt-3 border-l border-rule pl-4">
+        {answer.trace.map((s, i) => (
+          <li key={i} className="relative pb-3 last:pb-0">
+            <span
+              aria-hidden
+              className="absolute top-[0.45rem] -left-[1.27rem] h-2 w-2 rounded-full border border-slate bg-fog"
+            />
+            <p className="text-sm">
+              <span className="font-medium">{STEP_LABELS[s.step]}</span>
+              <span className="ml-2 font-mono text-[11px] text-slate">{s.ms} ms</span>
+            </p>
+            <p className="text-sm text-slate">{s.detail}</p>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 

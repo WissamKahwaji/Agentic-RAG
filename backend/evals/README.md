@@ -26,7 +26,24 @@ sits under a labelled `section`, or its page is in `pages`.
 - 34 questions means one question is about 3 percentage points. Treat differences of one or two
   questions as noise.
 
-### Results (2026-11-26, sample corpus, 330 chunks)
+## `unanswerable.jsonl`
+
+12 questions close to the corpus topics that it cannot answer (CORS, WebSockets, DiskANN, the
+learning rate used to train RAG, ...). A good pipeline declines them. Used by
+`make eval-grading` and `make eval-answers`.
+
+## Other evals
+
+- `make eval-grading`: what each reranker threshold keeps or drops. Chose 0.05: keeps a relevant
+  passage for 94% of answerable questions and drops about one irrelevant passage per question.
+  No threshold separates "on topic" from "answerable" (the DiskANN question's passages score 0.89),
+  so declining unanswerable questions is left to generation and self-check.
+- `make eval-selfcheck`: self-check false alarms on real answers vs detection of a planted false
+  claim. Per-claim checking: 18% false alarms, 100% detection (holistic: 59% / 100%).
+- `make eval-answers`: simple vs agentic end to end; full answers saved to `evals/results/`
+  (git-ignored) for review.
+
+### Retrieval results (2026-11-26, sample corpus, 330 chunks)
 
 | Pipeline | hit@1 | hit@5 | MRR@10 | p50 latency |
 | --- | --- | --- | --- | --- |

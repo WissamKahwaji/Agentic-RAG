@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Composer } from "@/components/composer";
 import { Turn, type TurnState } from "@/components/turn";
-import type { Answer, ApiError, DocumentSummary } from "@/lib/types";
+import type { Answer, ApiError, DocumentSummary, HistoryTurn } from "@/lib/types";
+
+// Earlier turns sent with each question so follow-ups ("what about IVFFlat?") make sense.
+const HISTORY_TURNS = 3;
 
 const EXAMPLES = [
   "How do I create an HNSW index, and what do m and ef_construction control?",
@@ -36,7 +39,7 @@ export function Chat() {
     lastTurnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [turns.length]);
 
-  const ask = useCallback(async (question: string) => {
+  const ask = useCallback(async (question: string, history: HistoryTurn[]) => {
     const id = crypto.randomUUID();
     setTurns((prev) => [...prev, { id, question, status: "pending" }]);
 
@@ -47,7 +50,7 @@ export function Chat() {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, history }),
       });
       const body = (await res.json()) as Answer | ApiError;
       if (!res.ok || "error" in body) {
@@ -60,6 +63,17 @@ export function Chat() {
     }
   }, []);
 
+  const askWithHistory = useCallback(
+    (question: string) => {
+      const history = turns
+        .filter((t) => t.status === "done" && t.answer && !t.answer.refused)
+        .slice(-HISTORY_TURNS)
+        .map((t) => ({ question: t.question, answer: t.answer!.answer }));
+      return ask(question, history);
+    },
+    [ask, turns],
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 sm:px-8">
       <header className="flex items-baseline justify-between gap-4 border-b border-rule py-5">
@@ -71,7 +85,7 @@ export function Chat() {
 
       <main className="flex-1 pb-10">
         {turns.length === 0 ? (
-          <Intro onPick={ask} disabled={pending} />
+          <Intro onPick={askWithHistory} disabled={pending} />
         ) : (
           turns.map((turn, i) => (
             <Turn key={turn.id} turn={turn} ref={i === turns.length - 1 ? lastTurnRef : null} />
@@ -79,7 +93,7 @@ export function Chat() {
         )}
       </main>
 
-      <Composer onSubmit={ask} disabled={pending} />
+      <Composer onSubmit={askWithHistory} disabled={pending} />
     </div>
   );
 }

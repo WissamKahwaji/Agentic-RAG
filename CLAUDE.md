@@ -9,7 +9,7 @@ graph (query rewriting, document grading, retries, answer self-check) with measu
 | Layer        | Choice                                                                |
 | ------------ | --------------------------------------------------------------------- |
 | API          | Python 3.12, FastAPI, Pydantic v2, uv                                 |
-| Agent flow   | LangGraph (plus LangChain loaders/integrations where they save code)  |
+| Agent flow   | LangGraph state graph (`agent/`); LangChain only for text splitters   |
 | LLM          | Ollama locally (`qwen2.5:7b`); hosted Groq/Gemini behind one interface |
 | Embeddings   | `bge-m3` via Ollama (1024 dims)                                       |
 | Reranker     | `BAAI/bge-reranker-v2-m3` cross-encoder, sentence-transformers on MPS |
@@ -34,7 +34,10 @@ backend/src/agentic_rag/   application package
   search.py                build_retriever(RETRIEVAL_MODE) composes the stages
   evals/                   retrieval metrics + runner (golden set in backend/evals/)
   prompts.py               versioned prompts; bump version on any wording change
-  answering.py             AnswerService: retrieve -> generate -> verify [n] citations
+  answering.py             Answer models + simple AnswerService (retrieve -> generate)
+  agent/graph.py           LangGraph agent: condense, retrieve, grade, reformulate, refuse,
+                           generate, self_check; every loop bounded by settings
+  agent/verify.py          per-claim citation verification (the self-check)
   ask_cli.py               `make ask` client for the running API
   ingestion/               loaders -> chunking -> pipeline (+ `python -m` CLI)
   api/                     routers + FastAPI dependencies
@@ -57,6 +60,9 @@ make ingest     # ingest data/raw (or DOCS=path)
 make dev        # API on :8000 with reload; docs at /docs
 make ask Q="…"  # call POST /ask on the running API
 make eval-retrieval  # hit@1 / hit@5 / MRR per retrieval mode on the golden set
+make eval-grading    # relevance-threshold calibration
+make eval-selfcheck  # self-check false alarms vs planted false claims
+make eval-answers    # simple vs agentic end to end (~10 min)
 make web        # chat UI on :3000 (needs `make dev`)
 make check      # backend + frontend lint, types, unit tests  <- must pass before "done"
 make test-all   # includes integration tests (needs `make up` + Ollama)

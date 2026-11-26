@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -11,7 +13,13 @@ from tests.fakes import FakeLLM, FakeRetriever, make_chunk
 class FailingLLM:
     model = "down"
 
-    async def chat(self, messages: list[ChatMessage], *, temperature: float = 0.0) -> LLMResult:
+    async def chat(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        json_schema: dict[str, Any] | None = None,
+    ) -> LLMResult:
         raise LLMError("connection refused")
 
 

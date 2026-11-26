@@ -58,3 +58,83 @@ def grounded_answer_user_message(question: str, chunks: list[RetrievedChunk]) ->
         f"Sources:\n\n{format_sources(chunks)}\n\n===\n\n"
         f"Question: {question}\n\n{CITATION_REMINDER}"
     )
+
+
+# ---------------------------------------------------------------- agent prompts
+
+CONDENSE_QUESTION = Prompt(
+    name="condense_question",
+    version=1,
+    system="""You rewrite a follow-up question into a standalone search query.
+
+Use the conversation to resolve references such as "it", "that index", or "what about X".
+Keep every technical term, name and identifier from the question. Do not answer the question.
+If the question is already standalone, return it unchanged.""",
+)
+
+REFORMULATE_QUERY = Prompt(
+    name="reformulate_query",
+    version=1,
+    system="""A document search returned nothing relevant for a query. Write ONE different search
+query that could find documentation passages answering the user's question.
+
+Try a different angle: use likely terminology from technical documentation, expand
+abbreviations, or name the specific feature, setting or concept involved. Keep it under 20
+words. Do not answer the question.""",
+)
+
+# Holistic self-check, superseded by per-claim VERIFY_CLAIM (59% vs 18% false alarms on the
+# golden set, same detection). Kept so `evals.selfcheck` can reproduce the comparison.
+SELF_CHECK = Prompt(
+    name="self_check",
+    version=1,
+    system="""You are a strict fact-checker. You receive numbered sources and an answer that cites
+them with markers like [1].
+
+List every claim in the answer that is NOT supported by the source it cites (or by any source).
+A claim is supported if the cited source states it or it follows directly from the source.
+Rephrasing is fine; added facts, numbers, names or recommendations are not.
+
+Set "supported" to true only if the list of unsupported claims is empty.""",
+)
+
+
+def condense_user_message(question: str, history: list[tuple[str, str]]) -> str:
+    turns = "\n\n".join(f"User: {q}\nAssistant: {a}" for q, a in history)
+    return f"Conversation:\n\n{turns}\n\n===\n\nFollow-up question: {question}"
+
+
+def reformulate_user_message(question: str, failed_queries: list[str]) -> str:
+    tried = "\n".join(f"- {q}" for q in failed_queries)
+    return f"User question: {question}\n\nQueries that found nothing relevant:\n{tried}"
+
+
+def self_check_user_message(answer: str, chunks: list[RetrievedChunk]) -> str:
+    return f"Sources:\n\n{format_sources(chunks)}\n\n===\n\nAnswer to check:\n{answer}"
+
+
+def revision_note(unsupported_claims: list[str]) -> str:
+    claims = "\n".join(f"- {c}" for c in unsupported_claims)
+    return (
+        "A fact-checker found these claims in your previous answer are not supported by the "
+        f"sources:\n{claims}\n\nWrite the answer again. Remove or correct those claims, and "
+        "cite a source for everything you keep."
+    )
+
+
+VERIFY_CLAIM = Prompt(
+    name="verify_claim",
+    version=1,
+    system="""Decide whether a claim is supported by the source text.
+
+Supported means the source states the claim or it follows directly from the source. Different
+wording is fine. A claim is NOT supported if it adds a fact, number, name, version, default value
+or recommendation that the source does not contain, or contradicts the source.
+
+Reply with JSON: {"supported": true} or {"supported": false}.""",
+)
+
+
+def verify_claim_user_message(claim: str, sources: list[RetrievedChunk]) -> str:
+    text = "\n\n---\n\n".join(c.content for c in sources)
+    return f"Source:\n{text}\n\n===\n\nClaim: {claim}"

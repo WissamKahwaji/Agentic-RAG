@@ -3,7 +3,7 @@ BACKEND := backend
 FRONTEND := frontend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help setup up down reset migrate dev web ask corpus ingest eval-retrieval lint format typecheck test test-all check web-check
+.PHONY: help setup up down reset migrate dev web ask corpus ingest eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -42,6 +42,15 @@ ask: ## Ask the running API a question: make ask Q="How do I create an HNSW inde
 
 eval-retrieval: ## Score retrieval pipelines on the golden set (needs `make up` + corpus)
 	$(UV) python -m agentic_rag.evals.retrieval -v
+
+eval-grading: ## Calibrate the passage relevance threshold (reranker scores)
+	$(UV) python -m agentic_rag.evals.grading
+
+eval-selfcheck: ## Self-check false alarms vs planted false claims
+	$(UV) python -m agentic_rag.evals.selfcheck
+
+eval-answers: ## End-to-end: simple vs agentic on answerable + unanswerable questions (~10 min)
+	$(UV) python -m agentic_rag.evals.answers
 
 lint: ## Lint and check formatting
 	$(UV) ruff check . && uv run ruff format --check .

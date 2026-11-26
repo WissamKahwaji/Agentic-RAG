@@ -10,8 +10,9 @@ from agentic_rag.main import create_app
 
 @pytest.fixture
 def app() -> FastAPI:
-    # Dense retrieval keeps the test app from loading the 2 GB reranker model.
-    return create_app(get_settings().model_copy(update={"retrieval_mode": "dense"}))
+    # Simple mode with dense retrieval keeps the test app from loading the 2 GB reranker.
+    overrides = {"retrieval_mode": "dense", "answer_mode": "simple"}
+    return create_app(get_settings().model_copy(update=overrides))
 
 
 @pytest.fixture

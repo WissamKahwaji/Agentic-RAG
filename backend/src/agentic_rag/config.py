@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     # 10 matched 20 and 30 on hit@1/MRR at half the latency; raise it for large corpora.
     rerank_candidates: int = Field(default=10, ge=5, le=100)
 
+    # "simple": one retrieve-then-generate pass. "agentic": the LangGraph agent (agent/graph.py).
+    answer_mode: Literal["simple", "agentic"] = "agentic"
+    # Reranker score a passage needs to reach the answer step (calibrated: make eval-grading).
+    relevance_threshold: float = Field(default=0.05, ge=0.0, le=1.0)
+    max_retrieval_attempts: int = Field(default=2, ge=1, le=5)
+    max_generation_attempts: int = Field(default=2, ge=1, le=5)
+    self_check: bool = True
+
     http_timeout_s: float = 60.0
 
 
