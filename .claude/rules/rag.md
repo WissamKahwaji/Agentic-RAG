@@ -12,6 +12,8 @@ paths:
   embedding protocols, never on a vendor SDK directly. Model names come from settings.
 - **Embedding consistency.** The embedding model and `EMBEDDING_DIM` must match the vector
   column. Changing either requires a migration and a full re-index; call this out explicitly.
+- **Re-index when the recipe changes.** Any change to loading, chunking or embedding logic must
+  bump `PIPELINE_VERSION` in `ingestion/pipeline.py`, so the fingerprint forces re-ingestion.
 - **Prompts are code.** Keep prompt templates in one module, named and versioned, with the
   variables they expect. No prompt strings scattered through business logic.
 - **Structured output.** When the model must return fields (grades, rewritten queries,

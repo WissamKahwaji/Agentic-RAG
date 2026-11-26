@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:7b"
     embedding_model: str = "bge-m3"
     embedding_dim: int = 1024
+    embed_batch_size: int = Field(default=32, ge=1)
+
+    # ~1200 chars is roughly 300 tokens: small enough for precise retrieval, large enough to
+    # keep a complete thought. Overlap stops sentences being cut in half at chunk boundaries.
+    chunk_size: int = Field(default=1200, ge=200)
+    chunk_overlap: int = Field(default=200, ge=0)
 
     http_timeout_s: float = 60.0
 

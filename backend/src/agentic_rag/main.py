@@ -8,8 +8,9 @@ import httpx
 from fastapi import FastAPI
 
 from agentic_rag import __version__, db
-from agentic_rag.api import health
+from agentic_rag.api import documents, health
 from agentic_rag.config import Settings, get_settings
+from agentic_rag.models import EMBEDDING_DIM
 
 
 def configure_logging(level: str) -> None:
@@ -22,10 +23,16 @@ def configure_logging(level: str) -> None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
+    if settings.embedding_dim != EMBEDDING_DIM:
+        raise RuntimeError(
+            f"EMBEDDING_DIM={settings.embedding_dim} does not match the vector column "
+            f"({EMBEDDING_DIM}). Changing it requires a migration and a full re-index."
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = db.create_engine(str(settings.database_url))
+        app.state.session_factory = db.create_session_factory(app.state.engine)
         app.state.http = httpx.AsyncClient(timeout=settings.http_timeout_s)
         try:
             yield
@@ -35,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Agentic RAG", version=__version__, lifespan=lifespan)
     app.include_router(health.router)
+    app.include_router(documents.router)
     return app
 
 

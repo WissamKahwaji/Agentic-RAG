@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help setup up down reset migrate dev lint format typecheck test test-all check
+.PHONY: help setup up down reset migrate dev corpus ingest lint format typecheck test test-all check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -22,6 +22,12 @@ reset: ## Stop infrastructure and DELETE the database volume
 
 migrate: ## Apply database migrations
 	$(UV) alembic upgrade head
+
+corpus: ## Download the public sample corpus into data/raw
+	./scripts/fetch_sample_corpus.sh data/raw
+
+ingest: ## Ingest documents: make ingest DOCS=data/raw
+	$(UV) python -m agentic_rag.ingestion ../$(or $(DOCS),data/raw)
 
 dev: ## Run the API with auto-reload on http://localhost:8000
 	$(UV) uvicorn agentic_rag.main:app --reload --port 8000

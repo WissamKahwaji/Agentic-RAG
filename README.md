@@ -8,8 +8,8 @@ prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** early development. The project skeleton is in place; ingestion and cited answering
-> are next. See [Roadmap](#roadmap).
+> **Status:** early development. Document ingestion is working; cited answering is next.
+> See [Roadmap](#roadmap).
 
 ---
 
@@ -75,7 +75,11 @@ make setup            # installs Python deps, creates .env from .env.example
 make up               # Postgres + pgvector, waits until healthy
 make migrate
 
-# 4. API
+# 4. Documents
+make corpus           # optional: download a small public sample corpus into data/raw
+make ingest           # or: make ingest DOCS=path/to/your/docs
+
+# 5. API
 make dev              # http://localhost:8000  ·  interactive docs at /docs
 ```
 
@@ -97,6 +101,29 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 | `LLM_MODEL` | `qwen2.5:7b` | Generation model |
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model |
 | `EMBEDDING_DIM` | `1024` | Must match the embedding model and the vector column |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1200` / `200` | Chunk length and overlap, in characters |
+
+## Ingestion
+
+```
+file ──► load ──► sections ──► chunk ──► embed ──► Postgres
+         PDF: one section per page          bge-m3     documents
+         Markdown: one per heading path     (batched)  chunks + HNSW index
+```
+
+- **Supported formats:** PDF, Markdown, plain text.
+- **Citation metadata:** chunks never cross a page or heading boundary, so each one cites exactly
+  one location (`page 6` or `pgvector > HNSW > Index options`).
+- **Contextual embeddings:** each chunk is embedded with its document title and heading path
+  prepended, so short passages still retrieve well. The stored text stays unmodified for display.
+- **Idempotent:** every document stores a fingerprint of its bytes *and* the ingestion recipe
+  (pipeline version, embedding model, chunk size). Unchanged files are skipped; changed files, or
+  a changed recipe, atomically replace that document's chunks.
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /health` | Database and model-server status (503 when degraded) |
+| `GET /documents` | Ingested documents with chunk counts |
 
 ## Development
 
@@ -116,9 +143,13 @@ Project layout:
 │   │   ├── main.py          # app factory and lifespan
 │   │   ├── config.py        # typed settings
 │   │   ├── db.py            # async database engine
+│   │   ├── models.py        # ORM models (documents, chunks)
+│   │   ├── embeddings.py    # Embedder protocol + Ollama implementation
+│   │   ├── ingestion/       # loaders, chunking, pipeline, CLI
 │   │   └── api/             # HTTP routers and dependencies
 │   ├── migrations/          # Alembic migrations
 │   └── tests/
+├── scripts/                 # sample-corpus download
 ├── docker-compose.yml       # Postgres + pgvector
 ├── Makefile
 └── .env.example
@@ -127,7 +158,10 @@ Project layout:
 ## Roadmap
 
 - [x] **Foundation:** FastAPI service, typed config, Postgres + pgvector, migrations, health checks, CI-ready tooling
-- [ ] **Milestone 1: Cited RAG:** document ingestion (load, chunk, embed), vector retrieval, grounded answers with citations, minimal chat UI
+- [ ] **Milestone 1: Cited RAG**
+  - [x] Document ingestion: load, chunk, embed, store; idempotent re-ingest
+  - [ ] Vector retrieval and grounded answers with citations
+  - [ ] Minimal chat UI
 - [ ] **Milestone 2: Retrieval quality:** hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [ ] **Milestone 3: Agentic graph:** query rewriting, document grading, retry on weak evidence, answer self-check, all with bounded loops
 - [ ] **Milestone 4: Evaluation:** Ragas / DeepEval suite with a versioned golden dataset; faithfulness, answer relevancy, context precision/recall

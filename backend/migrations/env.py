@@ -9,13 +9,14 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from agentic_rag.config import get_settings
+from agentic_rag.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set to the ORM metadata once models exist, to enable `alembic revision --autogenerate`.
-target_metadata = None
+# ORM metadata, used by `alembic revision --autogenerate` and `alembic check`.
+target_metadata = Base.metadata
 
 DATABASE_URL = str(get_settings().database_url)
 

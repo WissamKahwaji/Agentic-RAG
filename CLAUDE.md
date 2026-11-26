@@ -25,6 +25,9 @@ backend/src/agentic_rag/   application package
   main.py                  app factory + lifespan (engine, http client on app.state)
   config.py                Settings (pydantic-settings, reads repo-root .env)
   db.py                    async engine helpers
+  models.py                ORM: Document, Chunk (vector(1024), HNSW cosine)
+  embeddings.py            Embedder protocol + OllamaEmbedder
+  ingestion/               loaders -> chunking -> pipeline (+ `python -m` CLI)
   api/                     routers + FastAPI dependencies
 backend/migrations/        Alembic (revision ids are sequential: 0001, 0002, ...)
 backend/tests/             pytest; `integration` marker = needs live stack
@@ -37,6 +40,8 @@ docker-compose.yml         Postgres + pgvector
 make setup      # uv sync + create .env
 make up         # start Postgres, wait for healthy
 make migrate    # alembic upgrade head
+make corpus     # download public sample docs into data/raw (git-ignored)
+make ingest     # ingest data/raw (or DOCS=path)
 make dev        # API on :8000 with reload; docs at /docs
 make check      # lint + typecheck + unit tests  <- must pass before any task is "done"
 make test-all   # includes integration tests (needs `make up` + Ollama)
