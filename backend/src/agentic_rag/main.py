@@ -8,9 +8,13 @@ import httpx
 from fastapi import FastAPI
 
 from agentic_rag import __version__, db
-from agentic_rag.api import documents, health
+from agentic_rag.answering import AnswerService
+from agentic_rag.api import ask, documents, health
 from agentic_rag.config import Settings, get_settings
+from agentic_rag.embeddings import OllamaEmbedder
+from agentic_rag.llm import OllamaProvider
 from agentic_rag.models import EMBEDDING_DIM
+from agentic_rag.retrieval import VectorRetriever
 
 
 def configure_logging(level: str) -> None:
@@ -34,6 +38,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = db.create_engine(str(settings.database_url))
         app.state.session_factory = db.create_session_factory(app.state.engine)
         app.state.http = httpx.AsyncClient(timeout=settings.http_timeout_s)
+        embedder = OllamaEmbedder(
+            app.state.http,
+            settings.ollama_base_url,
+            settings.embedding_model,
+            settings.embedding_dim,
+            settings.embed_batch_size,
+        )
+        llm = OllamaProvider(
+            app.state.http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
+        )
+        app.state.answer_service = AnswerService(
+            retriever=VectorRetriever(app.state.session_factory, embedder),
+            llm=llm,
+            top_k=settings.retrieval_top_k,
+            temperature=settings.llm_temperature,
+        )
         try:
             yield
         finally:
@@ -43,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Agentic RAG", version=__version__, lifespan=lifespan)
     app.include_router(health.router)
     app.include_router(documents.router)
+    app.include_router(ask.router)
     return app
 
 

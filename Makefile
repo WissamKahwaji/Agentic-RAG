@@ -2,7 +2,7 @@
 BACKEND := backend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help setup up down reset migrate dev corpus ingest lint format typecheck test test-all check
+.PHONY: help setup up down reset migrate dev ask corpus ingest lint format typecheck test test-all check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -31,6 +31,9 @@ ingest: ## Ingest documents: make ingest DOCS=data/raw
 
 dev: ## Run the API with auto-reload on http://localhost:8000
 	$(UV) uvicorn agentic_rag.main:app --reload --port 8000
+
+ask: ## Ask the running API a question: make ask Q="How do I create an HNSW index?"
+	@cd $(BACKEND) && uv run python -m agentic_rag.ask_cli "$(Q)"
 
 lint: ## Lint and check formatting
 	$(UV) ruff check . && uv run ruff format --check .

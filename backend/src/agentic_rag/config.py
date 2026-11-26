@@ -23,6 +23,9 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://localhost:11434"
     llm_model: str = "qwen2.5:7b"
+    # 5 chunks x ~300 tokens + instructions + answer fits comfortably in 8k.
+    llm_num_ctx: int = Field(default=8192, ge=2048)
+    llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     embedding_model: str = "bge-m3"
     embedding_dim: int = 1024
     embed_batch_size: int = Field(default=32, ge=1)
@@ -31,6 +34,8 @@ class Settings(BaseSettings):
     # keep a complete thought. Overlap stops sentences being cut in half at chunk boundaries.
     chunk_size: int = Field(default=1200, ge=200)
     chunk_overlap: int = Field(default=200, ge=0)
+
+    retrieval_top_k: int = Field(default=5, ge=1, le=20)
 
     http_timeout_s: float = 60.0
 

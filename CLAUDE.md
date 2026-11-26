@@ -27,6 +27,11 @@ backend/src/agentic_rag/   application package
   db.py                    async engine helpers
   models.py                ORM: Document, Chunk (vector(1024), HNSW cosine)
   embeddings.py            Embedder protocol + OllamaEmbedder
+  llm.py                   LLMProvider protocol + OllamaProvider (sets num_ctx explicitly)
+  retrieval.py             VectorRetriever (cosine over HNSW)
+  prompts.py               versioned prompts; bump version on any wording change
+  answering.py             AnswerService: retrieve -> generate -> verify [n] citations
+  ask_cli.py               `make ask` client for the running API
   ingestion/               loaders -> chunking -> pipeline (+ `python -m` CLI)
   api/                     routers + FastAPI dependencies
 backend/migrations/        Alembic (revision ids are sequential: 0001, 0002, ...)
@@ -43,6 +48,7 @@ make migrate    # alembic upgrade head
 make corpus     # download public sample docs into data/raw (git-ignored)
 make ingest     # ingest data/raw (or DOCS=path)
 make dev        # API on :8000 with reload; docs at /docs
+make ask Q="…"  # call POST /ask on the running API
 make check      # lint + typecheck + unit tests  <- must pass before any task is "done"
 make test-all   # includes integration tests (needs `make up` + Ollama)
 ```

@@ -8,7 +8,8 @@ prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** early development. Document ingestion is working; cited answering is next.
+> **Status:** early development. Ingestion and cited question answering work end to end; the
+> chat UI is next.
 > See [Roadmap](#roadmap).
 
 ---
@@ -81,6 +82,9 @@ make ingest           # or: make ingest DOCS=path/to/your/docs
 
 # 5. API
 make dev              # http://localhost:8000  ·  interactive docs at /docs
+
+# 6. Ask (in another terminal)
+make ask Q="How do I create an HNSW index?"
 ```
 
 Check that everything is wired up:
@@ -102,6 +106,8 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 | `EMBEDDING_MODEL` | `bge-m3` | Embedding model |
 | `EMBEDDING_DIM` | `1024` | Must match the embedding model and the vector column |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1200` / `200` | Chunk length and overlap, in characters |
+| `RETRIEVAL_TOP_K` | `5` | Chunks passed to the model per question |
+| `LLM_NUM_CTX` | `8192` | Model context window; Ollama's default is too small for RAG prompts |
 
 ## Ingestion
 
@@ -120,10 +126,43 @@ file ──► load ──► sections ──► chunk ──► embed ──►
   (pipeline version, embedding model, chunk size). Unchanged files are skipped; changed files, or
   a changed recipe, atomically replace that document's chunks.
 
+## Answering
+
+```
+question ──► embed ──► top-k cosine search (HNSW) ──► numbered sources ──► LLM ──► verify citations
+```
+
+- **Grounded by construction:** the prompt allows only the numbered sources and requires a
+  citation on every claim. When the sources do not contain the answer, the model must say so.
+- **Citations are verified, not trusted:** every `[n]` marker is mapped back to the retrieved
+  chunk. Markers pointing at sources that were never provided are removed, and an answer is
+  flagged `grounded: false` when it cites nothing or declines to answer.
+- **Versioned prompts:** each response reports the prompt version (e.g. `grounded_answer@v2`), so
+  quality changes can be traced to prompt changes. v2 raised the citation rate on code-heavy
+  answers from 72% to 100% (18 runs over 6 questions).
+
+```jsonc
+// POST /ask {"question": "What is the difference between RAG-Sequence and RAG-Token?"}
+{
+  "answer": "RAG-Sequence uses the same retrieved document to generate the complete sequence [2]. RAG-Token can predict each target token based on a different document [2][4].",
+  "grounded": true,
+  "citations": [
+    {"number": 2, "source": "papers/rag-lewis-2020.pdf", "location": "page 3", "score": 0.576, "content": "..."},
+    {"number": 4, "source": "papers/rag-lewis-2020.pdf", "location": "page 3", "score": 0.573, "content": "..."}
+  ],
+  "model": "qwen2.5:7b",
+  "prompt": "grounded_answer@v2",
+  "timings": {"retrieval_ms": 162, "generation_ms": 3613}
+}
+```
+
+## API
+
 | Endpoint | Description |
 | --- | --- |
-| `GET /health` | Database and model-server status (503 when degraded) |
+| `POST /ask` | Answer a question with verified citations |
 | `GET /documents` | Ingested documents with chunk counts |
+| `GET /health` | Database and model-server status (503 when degraded) |
 
 ## Development
 
@@ -145,6 +184,10 @@ Project layout:
 │   │   ├── db.py            # async database engine
 │   │   ├── models.py        # ORM models (documents, chunks)
 │   │   ├── embeddings.py    # Embedder protocol + Ollama implementation
+│   │   ├── llm.py           # LLMProvider protocol + Ollama implementation
+│   │   ├── retrieval.py     # vector retriever
+│   │   ├── prompts.py       # versioned prompt templates
+│   │   ├── answering.py     # retrieve -> generate -> verify citations
 │   │   ├── ingestion/       # loaders, chunking, pipeline, CLI
 │   │   └── api/             # HTTP routers and dependencies
 │   ├── migrations/          # Alembic migrations
@@ -160,7 +203,7 @@ Project layout:
 - [x] **Foundation:** FastAPI service, typed config, Postgres + pgvector, migrations, health checks, CI-ready tooling
 - [ ] **Milestone 1: Cited RAG**
   - [x] Document ingestion: load, chunk, embed, store; idempotent re-ingest
-  - [ ] Vector retrieval and grounded answers with citations
+  - [x] Vector retrieval and grounded answers with verified citations
   - [ ] Minimal chat UI
 - [ ] **Milestone 2: Retrieval quality:** hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [ ] **Milestone 3: Agentic graph:** query rewriting, document grading, retry on weak evidence, answer self-check, all with bounded loops
