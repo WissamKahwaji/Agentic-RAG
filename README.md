@@ -8,8 +8,8 @@ prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** milestones 1-3 complete: cited answers, chat UI, measured hybrid retrieval with
-> reranking, and an agentic graph with self-checking. A full evaluation suite is next.
+> **Status:** milestones 1-4 complete: cited answers, chat UI, measured hybrid retrieval with
+> reranking, an agentic graph with self-checking, and an evaluation suite. Deployment is next.
 > See [Roadmap](#roadmap).
 
 ![Chat UI: an answer with numbered citation markers next to the evidence passages they point to](docs/screenshot.png)
@@ -25,7 +25,7 @@ Runs fully locally on free, open models. Hosted model providers plug in behind t
 | Control flow | LangGraph state machine with bounded loops | Explicit, inspectable agent steps instead of an opaque autonomous loop |
 | Storage | Postgres + pgvector | One database for documents, vectors and full-text indexes; no extra vector DB to operate |
 | Models | Ollama locally, Groq/Gemini hosted, behind one `LLMProvider` interface | No vendor lock-in; zero-cost local development; swap models without touching business logic |
-| Quality | Ragas / DeepEval evaluation suite | Retrieval and prompt changes are justified with numbers, not impressions |
+| Quality | Ragas evaluation suite on a versioned dataset | Retrieval and prompt changes are justified with numbers, not impressions |
 
 ## Architecture
 
@@ -53,7 +53,7 @@ flowchart LR
 - **AI:** LangGraph, Ollama (`qwen2.5:7b`, `bge-m3`), `bge-reranker-v2-m3` cross-encoder (sentence-transformers, Apple MPS)
 - **Data:** PostgreSQL 17: pgvector (HNSW) for semantic search, `tsvector` + GIN for keyword search
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
-- **Quality:** pytest, ruff, mypy (strict), Vitest, ESLint, Ragas / DeepEval *(planned)*
+- **Quality:** pytest, ruff, mypy (strict), Vitest, ESLint, Ragas
 
 ## Getting started
 
@@ -233,6 +233,37 @@ not raise headline numbers. Its value shows in the cases behind them:
 
 The cost is a longer tail: a revision means a second generation pass.
 
+## Evaluation
+
+`make eval` scores the whole system on a versioned dataset (34 answerable questions with
+reference answers written from the sources, 12 unanswerable ones) and writes a report with the
+git commit, dataset hash, models and prompt versions ([`backend/evals/reports/`](backend/evals/reports/)).
+Quality metrics come from [Ragas](https://docs.ragas.io), with an LLM as the judge.
+
+Baseline (2026-11-26):
+
+| metric | simple | agentic |
+| --- | --- | --- |
+| answered (answerable) | 100% | 94% |
+| declined (unanswerable) | 100% | 100% |
+| faithfulness | 0.942 | 0.925 |
+| answer relevancy | 0.862 | 0.732 |
+| context precision | 0.822 | 0.805 |
+| context recall | 0.865 | 0.821 |
+| factual correctness | 0.545 | 0.504 |
+| latency p50 / p90 | 3.3 s / 5.4 s | 3.9 s / 7.6 s |
+
+How to read it:
+
+- **The judge is the generator (qwen2.5:7b), so absolute scores are biased upward and noisy.**
+  Two near-identical answers received relevancy scores 0.29 apart, and a correct answer about
+  vector dimensions scored 0 on factual correctness. Differences smaller than about 0.05 should
+  not be trusted. A stronger, independent judge is a configuration change (`EVAL_JUDGE_*`).
+- Part of the agent's lower relevancy and correctness comes from its two declines, which score 0
+  on those metrics. One of them replaced a confidently wrong answer (see [Agent](#agent)).
+- Both pipelines fail `rag-generator` ("which generator model does RAG use?"): the passage naming
+  BART-large is retrieved but not used. That is the next retrieval/generation issue to fix.
+
 ## Answering
 
 ```
@@ -337,7 +368,7 @@ Project layout:
   - [x] Chat UI with inspectable citations
 - [x] **Milestone 2: Retrieval quality:** labelled retrieval eval, hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [x] **Milestone 3: Agentic graph:** follow-up condensing, calibrated passage grading, query reformulation, per-claim self-check, bounded loops, step trace
-- [ ] **Milestone 4: Evaluation:** Ragas / DeepEval suite with a versioned golden dataset; faithfulness, answer relevancy, context precision/recall
+- [x] **Milestone 4: Evaluation:** Ragas suite on a versioned dataset with reference answers; faithfulness, answer relevancy, context precision/recall, factual correctness; reports with config snapshots and baseline deltas
 - [ ] **Milestone 5: Production:** containerized deploy, hosted LLM provider, tracing with self-hosted Langfuse
 
 ## License

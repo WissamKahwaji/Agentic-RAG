@@ -87,6 +87,7 @@ class OllamaProvider:
         base_url: str,
         model: str,
         num_ctx: int,
+        max_tokens: int = 1536,
     ) -> None:
         self._http = http
         self._url = f"{base_url.rstrip('/')}/api/chat"
@@ -94,6 +95,10 @@ class OllamaProvider:
         # Ollama's default context window is small and it truncates the *start* of the prompt
         # silently when exceeded, which would drop the instructions and the first sources.
         self._num_ctx = num_ctx
+        # Hard cap on generated tokens. Without it a misbehaving generation (common in JSON mode)
+        # runs until the context window is full; the timeout alone would turn that into an error
+        # only after a long stall.
+        self._max_tokens = max_tokens
 
     async def chat(
         self,
@@ -106,7 +111,11 @@ class OllamaProvider:
             "model": self.model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "stream": False,
-            "options": {"temperature": temperature, "num_ctx": self._num_ctx},
+            "options": {
+                "temperature": temperature,
+                "num_ctx": self._num_ctx,
+                "num_predict": self._max_tokens,
+            },
         }
         if json_schema is not None:
             payload["format"] = json_schema  # Ollama constrains decoding to this schema

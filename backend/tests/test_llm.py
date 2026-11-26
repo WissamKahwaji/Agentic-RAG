@@ -32,7 +32,7 @@ async def test_chat_sends_context_window_and_returns_text_and_usage() -> None:
         [ChatMessage("user", "hello")], temperature=0.2
     )
 
-    assert sent["options"] == {"temperature": 0.2, "num_ctx": 8192}
+    assert sent["options"] == {"temperature": 0.2, "num_ctx": 8192, "num_predict": 1536}
     assert sent["stream"] is False
     assert (result.text, result.prompt_tokens, result.completion_tokens) == ("hi", 12, 3)
 
