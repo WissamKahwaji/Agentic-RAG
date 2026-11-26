@@ -16,7 +16,7 @@ from agentic_rag.retrieval import RetrievedChunk, Retriever
 logger = logging.getLogger(__name__)
 
 # Matches [1], [12] and grouped forms such as [1, 3].
-_CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+CITATION_MARKER = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 # A closing code fence followed by markers on the same line: "``` [2]."
 _FENCE_WITH_MARKERS = re.compile(
     r"^([ \t]*(?:```|~~~))[ \t]*((?:\[\d+(?:\s*,\s*\d+)*\])+)[ \t]*\.?[ \t]*$", re.MULTILINE
@@ -75,6 +75,9 @@ class Answer(BaseModel):
         default=None, description="Verdict of the answer self-check, when it ran."
     )
     trace: list[TraceStep] = Field(default_factory=list)
+    # Every passage given to the generator (cited or not). Needed by evaluation metrics such as
+    # context precision; excluded from API responses.
+    contexts: list[str] = Field(default_factory=list, exclude=True)
 
 
 class QuestionAnswerer(Protocol):
@@ -129,6 +132,7 @@ class AnswerService:
                 retrieval_ms=round((retrieved - started) * 1000),
                 generation_ms=round((generated - retrieved) * 1000),
             ),
+            contexts=[c.content for c in chunks],
         )
 
 
@@ -139,7 +143,7 @@ def finalize_answer(text: str, chunks: list[RetrievedChunk]) -> tuple[str, list[
     if refused:
         # Models often append "[1][2]..." to a refusal; citing sources for "I don't know"
         # would mislead the reader, so drop the markers along with the citations.
-        text, citations = _tidy(_CITATION.sub("", text)).strip(), []
+        text, citations = _tidy(CITATION_MARKER.sub("", text)).strip(), []
     logger.info("answered: citations=%s refused=%s", [c.number for c in citations], refused)
     return text, citations, refused
 
@@ -171,7 +175,12 @@ def resolve_citations(text: str, chunks: list[RetrievedChunk]) -> tuple[str, lis
             logger.warning("dropped invalid citation(s) %s", set(numbers) - set(valid))
         return "".join(f"[{n}]" for n in valid)
 
-    return _tidy(_CITATION.sub(replace, text)), list(cited.values())
+    return _tidy(CITATION_MARKER.sub(replace, text)), list(cited.values())
+
+
+def strip_citations(text: str) -> str:
+    """The answer text without [n] markers, e.g. for evaluation or plain-text display."""
+    return _tidy(CITATION_MARKER.sub("", text)).strip()
 
 
 def _tidy(text: str) -> str:
@@ -182,7 +191,7 @@ def _tidy(text: str) -> str:
 def is_refusal(text: str) -> bool:
     # Normalise before matching: models put markers inside words ("I don[1]'t know") and mix
     # typographic and straight apostrophes.
-    normalised = _CITATION.sub("", text).replace("\u2019", "'").lower()
+    normalised = CITATION_MARKER.sub("", text).replace("\u2019", "'").lower()
     return NO_ANSWER.lower().rstrip(".") in " ".join(normalised.split())
 
 

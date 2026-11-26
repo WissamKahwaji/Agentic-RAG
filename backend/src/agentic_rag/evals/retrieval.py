@@ -20,7 +20,7 @@ from agentic_rag.reranking import CrossEncoderReranker
 from agentic_rag.retrieval import Retriever
 from agentic_rag.search import RETRIEVAL_MODES, build_retriever
 
-GOLDEN = Path(__file__).resolve().parents[3] / "evals" / "retrieval_golden.jsonl"
+GOLDEN = Path(__file__).resolve().parents[3] / "evals" / "golden.jsonl"
 
 
 def load_golden(path: Path = GOLDEN) -> list[GoldenQuestion]:

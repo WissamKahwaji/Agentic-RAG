@@ -34,6 +34,7 @@ class GoldenQuestion(BaseModel):
     id: str
     kind: str  # "keyword": hinges on exact terms/identifiers; "natural": paraphrased wording
     question: str
+    reference: str | None = None  # ground-truth answer written from the sources
     relevant: list[RelevantSpan]
 
 

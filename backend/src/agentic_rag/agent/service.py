@@ -56,4 +56,5 @@ class AgentAnswerService:
             search_query=state["search_query"] if state["search_query"] != question else None,
             self_check=None if refused else check,
             trace=trace,
+            contexts=[c.content for c in relevant],
         )

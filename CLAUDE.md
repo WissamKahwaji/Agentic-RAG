@@ -59,6 +59,8 @@ make corpus     # download public sample docs into data/raw (git-ignored)
 make ingest     # ingest data/raw (or DOCS=path)
 make dev        # API on :8000 with reload; docs at /docs
 make ask Q="…"  # call POST /ask on the running API
+make eval           # full suite: retrieval + behaviour + Ragas quality -> backend/evals/reports/
+make eval-quick     # same, first 5 questions per set (smoke test, ~2 min)
 make eval-retrieval  # hit@1 / hit@5 / MRR per retrieval mode on the golden set
 make eval-grading    # relevance-threshold calibration
 make eval-selfcheck  # self-check false alarms vs planted false claims

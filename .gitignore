@@ -35,3 +35,4 @@ data/raw/
 
 # Eval run outputs (large, per-run)
 backend/evals/results/
+backend/evals/.judge-cache/

@@ -3,7 +3,7 @@ BACKEND := backend
 FRONTEND := frontend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help setup up down reset migrate dev web ask corpus ingest eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
+.PHONY: help setup up down reset migrate dev web ask corpus ingest eval eval-quick eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -39,6 +39,12 @@ web: ## Run the chat UI on http://localhost:3000 (needs `make dev` running)
 
 ask: ## Ask the running API a question: make ask Q="How do I create an HNSW index?"
 	@cd $(BACKEND) && uv run python -m agentic_rag.ask_cli "$(Q)"
+
+eval: ## Full eval suite (retrieval, behaviour, Ragas quality) -> backend/evals/reports/. BASELINE=path.json for deltas
+	$(UV) python -m agentic_rag.evals.suite $(if $(BASELINE),--compare ../$(BASELINE))
+
+eval-quick: ## Smoke-run the suite on 5 questions per set
+	$(UV) python -m agentic_rag.evals.suite --limit 5
 
 eval-retrieval: ## Score retrieval pipelines on the golden set (needs `make up` + corpus)
 	$(UV) python -m agentic_rag.evals.retrieval -v

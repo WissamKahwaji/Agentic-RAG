@@ -1,16 +1,25 @@
 # Evaluation datasets
 
-## `retrieval_golden.jsonl`
+Run everything with `make eval` from the repo root. Reports land in `reports/` (committed, so
+quality history is part of the repo). Pass `BASELINE=backend/evals/reports/<run>.json` to see
+deltas against an earlier run.
 
-Labelled questions over the sample corpus (`make corpus`), used by `make eval-retrieval` to
-compare retrieval pipelines.
+## `golden.jsonl`
+
+Labelled questions over the sample corpus (`make corpus`). The file is the versioned dataset:
+every report records its SHA-256, so scores from different dataset versions are never compared
+by accident.
 
 | Field | Meaning |
 | --- | --- |
 | `id` | Stable identifier, used in reports of missed questions |
 | `kind` | `keyword`: hinges on exact terms or identifiers (`hnsw.ef_search`). `natural`: paraphrased, shares few words with the source |
 | `question` | The question as a user would ask it |
+| `reference` | A correct, complete answer written from the source passages (ground truth for context recall, context precision and factual correctness) |
 | `relevant` | Locations that answer it: `source` plus a heading-path prefix (`section`) or PDF `pages` |
+
+References state only what the sources say, in plain sentences, without citations. They were
+written by reading the labelled passages, and checked against the PDF text for numbers.
 
 A retrieved chunk counts as relevant when its source matches and its heading path equals or
 sits under a labelled `section`, or its page is in `pages`.
@@ -22,7 +31,9 @@ sits under a labelled `section`, or its page is in `pages`.
   The 2026-11-26 audit added four locations (the sparse-vector operator table, the halfvec
   storage tip, binary quantization in the indexing tips, and the Jeopardy human-evaluation
   table on page 8). All four genuinely answer their question and had been missed when labelling.
-  Every pipeline was re-scored after the fix.
+  Every pipeline was re-scored after the fix. While writing reference answers, page 8 of the RAG
+  paper (the index hot-swap experiment) was added to `rag-hot-swap`; retrieval scores did not
+  change.
 - 34 questions means one question is about 3 percentage points. Treat differences of one or two
   questions as noise.
 
