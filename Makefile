@@ -1,0 +1,44 @@
+.DEFAULT_GOAL := help
+BACKEND := backend
+UV := cd $(BACKEND) && uv run
+
+.PHONY: help setup up down reset migrate dev lint format typecheck test test-all check
+
+help: ## Show available targets
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+setup: ## Install backend dependencies and create .env if missing
+	@test -f .env || cp .env.example .env
+	cd $(BACKEND) && uv sync
+
+up: ## Start infrastructure (Postgres + pgvector) and wait until healthy
+	docker compose up -d --wait
+
+down: ## Stop infrastructure (data is kept)
+	docker compose down
+
+reset: ## Stop infrastructure and DELETE the database volume
+	docker compose down --volumes
+
+migrate: ## Apply database migrations
+	$(UV) alembic upgrade head
+
+dev: ## Run the API with auto-reload on http://localhost:8000
+	$(UV) uvicorn agentic_rag.main:app --reload --port 8000
+
+lint: ## Lint and check formatting
+	$(UV) ruff check . && uv run ruff format --check .
+
+format: ## Auto-fix lint issues and format
+	$(UV) ruff check --fix . && uv run ruff format .
+
+typecheck: ## Static type check (mypy, strict)
+	$(UV) mypy
+
+test: ## Unit tests (no external services)
+	$(UV) pytest -m "not integration"
+
+test-all: ## All tests, including integration (needs `make up` and Ollama)
+	$(UV) pytest
+
+check: lint typecheck test ## Everything CI runs
