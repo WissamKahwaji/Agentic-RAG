@@ -70,6 +70,10 @@ class EvalSettings(BaseSettings):
     judge_embedding_model: str = "bge-m3"
     judge_embedding_base_url: str = "http://localhost:11434/v1"
     concurrency: int = 2
+    # Guards against runaway generations: in JSON mode a small model can emit whitespace until
+    # its context window is full, which hung single calls for ~15 minutes before these limits.
+    judge_max_tokens: int = 2048
+    judge_timeout_s: float = 120.0
 
 
 # ------------------------------------------------------------------------------------ judging
@@ -97,10 +101,14 @@ class Judge:
 
         # Cached judge calls make re-scoring unchanged answers nearly free.
         cache = DiskCacheBackend(cache_dir=str(REPORTS.parent / ".judge-cache"))
+        client = AsyncOpenAI(
+            base_url=cfg.judge_base_url,
+            api_key=cfg.judge_api_key,
+            timeout=cfg.judge_timeout_s,
+            max_retries=1,
+        )
         llm = llm_factory(
-            cfg.judge_model,
-            client=AsyncOpenAI(base_url=cfg.judge_base_url, api_key=cfg.judge_api_key),
-            cache=cache,
+            cfg.judge_model, client=client, cache=cache, max_tokens=cfg.judge_max_tokens
         )
         embeddings: Any = embedding_factory(
             "openai",
