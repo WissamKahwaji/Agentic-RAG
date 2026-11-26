@@ -115,7 +115,7 @@ function Passage({ text, markdown, active }: { text: string; markdown: boolean; 
 function Similarity({ score }: { score: number }) {
   const pct = Math.max(0, Math.min(1, score)) * 100;
   return (
-    <span className="flex shrink-0 items-center gap-2" title="Cosine similarity to the question">
+    <span className="flex shrink-0 items-center gap-2" title="Relevance to the question, from the final ranking stage">
       <span className="h-1 w-12 overflow-hidden rounded-full bg-rule" aria-hidden>
         <span className="block h-full rounded-full bg-cobalt" style={{ width: `${pct}%` }} />
       </span>

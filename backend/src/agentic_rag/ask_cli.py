@@ -31,7 +31,7 @@ def main() -> int:
     print(f"\n{body['answer']}\n")
     for c in body["citations"]:
         snippet = textwrap.shorten(c["content"], width=110, placeholder=" …")
-        print(f"  [{c['number']}] {c['source']} ({c['location']}), similarity {c['score']:.2f}")
+        print(f"  [{c['number']}] {c['source']} ({c['location']}), relevance {c['score']:.2f}")
         print(f"      {snippet}")
     t = body["timings"]
     print(

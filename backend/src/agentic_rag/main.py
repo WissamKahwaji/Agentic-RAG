@@ -14,7 +14,8 @@ from agentic_rag.config import Settings, get_settings
 from agentic_rag.embeddings import OllamaEmbedder
 from agentic_rag.llm import OllamaProvider
 from agentic_rag.models import EMBEDDING_DIM
-from agentic_rag.retrieval import VectorRetriever
+from agentic_rag.reranking import CrossEncoderReranker
+from agentic_rag.search import build_retriever
 
 
 def configure_logging(level: str) -> None:
@@ -48,8 +49,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         llm = OllamaProvider(
             app.state.http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
         )
+        reranker = None
+        if "rerank" in settings.retrieval_mode:
+            reranker = CrossEncoderReranker(settings.reranker_model)
+            # Load the model now, so the first question doesn't pay for it.
+            await reranker.warm_up()
         app.state.answer_service = AnswerService(
-            retriever=VectorRetriever(app.state.session_factory, embedder),
+            retriever=build_retriever(
+                settings.retrieval_mode, app.state.session_factory, embedder, settings, reranker
+            ),
             llm=llm,
             top_k=settings.retrieval_top_k,
             temperature=settings.llm_temperature,

@@ -4,7 +4,18 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Must equal settings.embedding_dim. Changing it requires a migration and a full re-index.
@@ -48,6 +59,7 @@ class Chunk(Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+        Index("ix_chunks_search_vector", "search_vector", postgresql_using="gin"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -59,5 +71,15 @@ class Chunk(Base):
     page: Mapped[int | None] = mapped_column(Integer)
     section: Mapped[str | None] = mapped_column(String(1024))
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))
+    # Maintained by Postgres (see migration 0003); never written by the application.
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('english', coalesce(section, '')), 'A') || "
+            "setweight(to_tsvector('english', content), 'B')",
+            persisted=True,
+        ),
+        deferred=True,
+    )
 
     document: Mapped[Document] = relationship(back_populates="chunks")

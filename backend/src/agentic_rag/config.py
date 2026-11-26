@@ -2,11 +2,15 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Named after their stages: first-stage retrieval, then optional cross-encoder reranking.
+RetrievalMode = Literal["dense", "keyword", "hybrid", "dense+rerank", "hybrid+rerank"]
 
 
 class Settings(BaseSettings):
@@ -36,6 +40,14 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=200, ge=0)
 
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
+    # Chosen by the retrieval eval (`make eval-retrieval`): best hit@1/MRR, ~350 ms extra.
+    retrieval_mode: RetrievalMode = "hybrid+rerank"
+    # How many results each retriever contributes before fusion.
+    hybrid_candidates: int = Field(default=30, ge=5, le=200)
+    # Cross-encoder that re-orders the first-stage candidates (only used by "+rerank" modes).
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    # 10 matched 20 and 30 on hit@1/MRR at half the latency; raise it for large corpora.
+    rerank_candidates: int = Field(default=10, ge=5, le=100)
 
     http_timeout_s: float = 60.0
 

@@ -8,8 +8,8 @@ prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** milestone 1 complete: ingestion, cited answers and a chat UI work end to end.
-> Retrieval quality (hybrid search, reranking) is next.
+> **Status:** milestones 1-2 complete: cited answers, chat UI, and measured hybrid retrieval
+> with reranking. The agentic graph is next.
 > See [Roadmap](#roadmap).
 
 ![Chat UI: an answer with numbered citation markers next to the evidence passages they point to](docs/screenshot.png)
@@ -50,8 +50,8 @@ flowchart LR
 ## Tech stack
 
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, uv
-- **AI:** LangGraph, LangChain integrations, Ollama (`qwen2.5:7b`, `bge-m3`)
-- **Data:** PostgreSQL 17 with pgvector (HNSW)
+- **AI:** Ollama (`qwen2.5:7b`, `bge-m3`), `bge-reranker-v2-m3` cross-encoder (sentence-transformers, Apple MPS), LangGraph *(planned)*
+- **Data:** PostgreSQL 17: pgvector (HNSW) for semantic search, `tsvector` + GIN for keyword search
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - **Quality:** pytest, ruff, mypy (strict), Vitest, ESLint, Ragas / DeepEval *(planned)*
 
@@ -114,6 +114,8 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1200` / `200` | Chunk length and overlap, in characters |
 | `RETRIEVAL_TOP_K` | `5` | Chunks passed to the model per question |
 | `LLM_NUM_CTX` | `8192` | Model context window; Ollama's default is too small for RAG prompts |
+| `RETRIEVAL_MODE` | `hybrid+rerank` | Retrieval pipeline: `dense`, `keyword`, `hybrid`, `dense+rerank`, `hybrid+rerank` |
+| `RERANK_CANDIDATES` | `10` | First-stage results the reranker re-orders |
 
 ## Ingestion
 
@@ -131,6 +133,39 @@ file ──► load ──► sections ──► chunk ──► embed ──►
 - **Idempotent:** every document stores a fingerprint of its bytes *and* the ingestion recipe
   (pipeline version, embedding model, chunk size). Unchanged files are skipped; changed files, or
   a changed recipe, atomically replace that document's chunks.
+
+## Retrieval
+
+```
+            ┌─► dense: bge-m3 embedding, cosine over HNSW ──┐
+question ───┤                                               ├─► RRF fusion ─► top 10 ─► cross-encoder ─► top 5
+            └─► keyword: Postgres full-text, ts_rank_cd ────┘                           rerank
+```
+
+- **Dense** search matches meaning ("make the index build faster" finds *Index Build Time*).
+- **Keyword** search matches exact terms that embeddings blur (`hnsw.ef_search`,
+  `vector_l2_ops`). Postgres ranking has no IDF, so code identifiers in the question are also
+  matched as exact phrases and boosted.
+- **Reciprocal Rank Fusion** merges the two lists by rank, not score, because cosine similarity
+  and `ts_rank` live on unrelated scales.
+- A **cross-encoder reranker** reads the question and each candidate passage together. It is
+  much more accurate than comparing separate embeddings, and too slow for the whole corpus, so
+  it only re-orders the top 10.
+
+Every stage is measured against a labelled set of 34 questions (`make eval-retrieval`, details in
+[`backend/evals/README.md`](backend/evals/README.md)):
+
+| Pipeline | hit@1 | hit@5 | MRR@10 | p50 latency |
+| --- | --- | --- | --- | --- |
+| dense | 79% | 100% | 0.887 | 21 ms |
+| keyword | 35% | 88% | 0.559 | 4 ms |
+| hybrid | 76% | 97% | 0.868 | 25 ms |
+| **hybrid + rerank** (default) | **82%** | **100%** | **0.907** | ~350 ms |
+
+On this small, clean corpus, dense retrieval with a strong embedding model is already a high
+baseline. Hybrid search mainly helps identifier-style questions, and reranking gives the best
+first result. The pipeline is a setting (`RETRIEVAL_MODE`), so it can be re-chosen as the corpus
+grows.
 
 ## Answering
 
@@ -168,7 +203,7 @@ The UI is built for checking answers, not just reading them.
 
 - Each claim in an answer carries a numbered marker. Hovering or focusing a marker highlights the
   exact passage it points to in the evidence column; clicking pins it.
-- Evidence cards show the source file, location (page or heading path), similarity to the
+- Evidence cards show the source file, location (page or heading path), relevance to the
   question, and the passage itself, rendered as Markdown for Markdown sources.
 - Answers that cite nothing are flagged as unverified; questions the documents can't answer say so.
 - The browser only talks to Next.js Route Handlers (`/api/ask`, `/api/documents`), which forward
@@ -204,11 +239,15 @@ Project layout:
 │   │   ├── models.py        # ORM models (documents, chunks)
 │   │   ├── embeddings.py    # Embedder protocol + Ollama implementation
 │   │   ├── llm.py           # LLMProvider protocol + Ollama implementation
-│   │   ├── retrieval.py     # vector retriever
+│   │   ├── retrieval.py     # dense, keyword and hybrid (RRF) retrievers
+│   │   ├── reranking.py     # cross-encoder reranker stage
+│   │   ├── search.py        # builds the pipeline from RETRIEVAL_MODE
+│   │   ├── evals/           # retrieval metrics and eval runner
 │   │   ├── prompts.py       # versioned prompt templates
 │   │   ├── answering.py     # retrieve -> generate -> verify citations
 │   │   ├── ingestion/       # loaders, chunking, pipeline, CLI
 │   │   └── api/             # HTTP routers and dependencies
+│   ├── evals/               # golden datasets and results
 │   ├── migrations/          # Alembic migrations
 │   └── tests/
 ├── scripts/                 # sample-corpus download
@@ -229,7 +268,7 @@ Project layout:
   - [x] Document ingestion: load, chunk, embed, store; idempotent re-ingest
   - [x] Vector retrieval and grounded answers with verified citations
   - [x] Chat UI with inspectable citations
-- [ ] **Milestone 2: Retrieval quality:** hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
+- [x] **Milestone 2: Retrieval quality:** labelled retrieval eval, hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [ ] **Milestone 3: Agentic graph:** query rewriting, document grading, retry on weak evidence, answer self-check, all with bounded loops
 - [ ] **Milestone 4: Evaluation:** Ragas / DeepEval suite with a versioned golden dataset; faithfulness, answer relevancy, context precision/recall
 - [ ] **Milestone 5: Production:** containerized deploy, hosted LLM provider, tracing with self-hosted Langfuse

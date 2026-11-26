@@ -12,6 +12,7 @@ graph (query rewriting, document grading, retries, answer self-check) with measu
 | Agent flow   | LangGraph (plus LangChain loaders/integrations where they save code)  |
 | LLM          | Ollama locally (`qwen2.5:7b`); hosted Groq/Gemini behind one interface |
 | Embeddings   | `bge-m3` via Ollama (1024 dims)                                       |
+| Reranker     | `BAAI/bge-reranker-v2-m3` cross-encoder, sentence-transformers on MPS |
 | Storage      | Postgres 17 + pgvector, SQLAlchemy 2 async + psycopg 3, Alembic       |
 | Frontend     | Next.js 16 App Router, React 19, TS, Tailwind 4 (`frontend/`)         |
 | Quality      | pytest, Ragas/DeepEval evals, ruff, mypy --strict                     |
@@ -28,7 +29,10 @@ backend/src/agentic_rag/   application package
   models.py                ORM: Document, Chunk (vector(1024), HNSW cosine)
   embeddings.py            Embedder protocol + OllamaEmbedder
   llm.py                   LLMProvider protocol + OllamaProvider (sets num_ctx explicitly)
-  retrieval.py             VectorRetriever (cosine over HNSW)
+  retrieval.py             Vector / Keyword (tsvector) / Hybrid (RRF) retrievers
+  reranking.py             CrossEncoderReranker + RerankingRetriever
+  search.py                build_retriever(RETRIEVAL_MODE) composes the stages
+  evals/                   retrieval metrics + runner (golden set in backend/evals/)
   prompts.py               versioned prompts; bump version on any wording change
   answering.py             AnswerService: retrieve -> generate -> verify [n] citations
   ask_cli.py               `make ask` client for the running API
@@ -52,6 +56,7 @@ make corpus     # download public sample docs into data/raw (git-ignored)
 make ingest     # ingest data/raw (or DOCS=path)
 make dev        # API on :8000 with reload; docs at /docs
 make ask Q="…"  # call POST /ask on the running API
+make eval-retrieval  # hit@1 / hit@5 / MRR per retrieval mode on the golden set
 make web        # chat UI on :3000 (needs `make dev`)
 make check      # backend + frontend lint, types, unit tests  <- must pass before "done"
 make test-all   # includes integration tests (needs `make up` + Ollama)

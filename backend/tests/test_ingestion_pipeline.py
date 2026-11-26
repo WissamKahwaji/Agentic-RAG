@@ -12,6 +12,7 @@ from agentic_rag import db
 from agentic_rag.config import get_settings
 from agentic_rag.ingestion import IngestionService
 from agentic_rag.models import EMBEDDING_DIM, Chunk, Document
+from agentic_rag.retrieval import KeywordRetriever
 
 pytestmark = pytest.mark.integration
 
@@ -64,3 +65,20 @@ async def test_ingest_is_idempotent_and_replaces_changed_documents(
     assert again.status == "unchanged"
     assert changed.status == "updated"
     assert await _chunk_count(sessions, source) == changed.chunks == 1
+
+
+async def test_keyword_search_finds_exact_identifier(
+    corpus: Path, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    service = IngestionService(sessions, FakeEmbedder(), chunk_size=400, chunk_overlap=0)
+    path = corpus / "settings.md"
+    path.write_text(
+        "# Settings\n\n## Tuning\n\nRaise zqxflux_window_size to keep more history in memory.\n\n"
+        "## Other\n\nThis section talks about something unrelated entirely, nothing to see."
+    )
+    await service.ingest_file(path, source=f"{corpus.name}/settings.md")
+
+    results = await KeywordRetriever(sessions).search("what does zqxflux_window_size do?", k=3)
+
+    assert results, "expected a keyword match"
+    assert results[0].section == "Settings > Tuning"

@@ -21,7 +21,11 @@ paths:
   bounded retry and a safe fallback.
 - **Bounded agents.** Every loop in the agent graph has a max-iterations limit and a defined
   exit. No unbounded retries.
-- **Measure before tuning.** Changes to chunking, top-k, reranking, or prompts should be
-  justified by the eval suite (once it exists), with before/after numbers in the commit body.
+- **Measure before tuning.** Changes to chunking, top-k, retrieval mode, reranking, or prompts
+  must be justified with `make eval-retrieval` (and answer evals once they exist), with
+  before/after numbers in the commit body.
+- **Golden labels follow the text.** Change a label in `backend/evals/` only after reading the
+  passage and judging it answers the question. Never relabel to favour a pipeline; re-score
+  every mode after any label change and note it in `backend/evals/README.md`.
 - Log retrieval decisions (query, chunk ids, scores, latency) at DEBUG for traceability; never
   log full document contents at INFO.
