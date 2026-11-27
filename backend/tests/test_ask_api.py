@@ -54,6 +54,7 @@ async def test_ask_returns_503_when_model_is_down(app: FastAPI, client: httpx.As
 
 
 @pytest.mark.integration
+@pytest.mark.ollama
 async def test_ask_end_to_end_against_ingested_corpus(client: httpx.AsyncClient) -> None:
     """Structure only: real model output varies, so wording is checked by evals, not here."""
     resp = await client.post("/ask", json={"question": "How do I create an HNSW index?"})

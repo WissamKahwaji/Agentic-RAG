@@ -43,7 +43,8 @@ backend/src/agentic_rag/   application package
   ingestion/               loaders -> chunking -> pipeline (+ `python -m` CLI)
   api/                     routers + FastAPI dependencies
 backend/migrations/        Alembic (revision ids are sequential: 0001, 0002, ...)
-backend/tests/             pytest; `integration` marker = needs live stack
+backend/tests/             pytest; markers: `integration` = needs Postgres, `ollama` = also needs models
+.github/workflows/ci.yml   CI: lint, types, unit + Postgres tests, migrations, frontend build
 frontend/src/app/          page + /api/* Route Handlers that proxy to FastAPI
 frontend/src/components/   chat UI (client components)
 frontend/src/lib/          API types (mirror backend Pydantic models), citation parsing

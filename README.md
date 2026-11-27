@@ -1,5 +1,7 @@
 # Agentic RAG
 
+[![CI](https://github.com/WissamKahwaji/Agentic-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/WissamKahwaji/Agentic-RAG/actions/workflows/ci.yml)
+
 A retrieval-augmented generation (RAG) service that answers questions over your documents and
 **cites the exact passages it used**, then verifies each cited claim before answering. It starts as a classic retrieve-then-generate pipeline and
 evolves into an agentic workflow that rewrites queries, grades retrieved evidence, retries when
@@ -361,6 +363,11 @@ make check       # backend + frontend lint, type-check, unit tests (what CI runs
 make test-all    # also runs integration tests against the live stack
 make format      # auto-fix lint and formatting
 ```
+
+CI (GitHub Actions) runs on every push and pull request: backend lint, strict types and unit
+tests; migrations, a schema-drift check and Postgres-backed tests against a pgvector service;
+frontend lint, types, tests and a production build. Tests that need Ollama (`ollama` marker)
+run locally with `make test-all`.
 
 Project layout:
 

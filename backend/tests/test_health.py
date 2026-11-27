@@ -36,6 +36,7 @@ async def test_health_degraded_returns_503(app: FastAPI, client: httpx.AsyncClie
 
 
 @pytest.mark.integration
+@pytest.mark.ollama
 async def test_health_against_real_stack(client: httpx.AsyncClient) -> None:
     resp = await client.get("/health")
 

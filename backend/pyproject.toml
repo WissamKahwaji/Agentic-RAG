@@ -16,8 +16,19 @@ dependencies = [
     "pypdf>=7.1.1",
     "sentence-transformers>=6.3.0",
     "sqlalchemy[asyncio]>=2.1.9",
+    "torch>=2.15.0",
     "uvicorn[standard]>=0.54.0",
 ]
+
+# Linux (CI, servers) gets CPU-only PyTorch: the default Linux wheels bundle ~2.5 GB of CUDA
+# libraries we never use. macOS keeps the standard wheels, which include Apple MPS support.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["uv_build>=0.13.10,<0.14.0"]
@@ -73,6 +84,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 markers = [
-    "integration: needs the docker compose stack and Ollama running",
+    "integration: needs the docker compose stack (Postgres)",
+    "ollama: also needs Ollama and the models running (not available in CI)",
 ]
 addopts = "-ra --strict-markers"
