@@ -273,18 +273,19 @@ reference answers written from the sources, 12 unanswerable ones) and writes a r
 git commit, dataset hash, models and prompt versions ([`backend/evals/reports/`](backend/evals/reports/)).
 Quality metrics come from [Ragas](https://docs.ragas.io), with an LLM as the judge.
 
-Baseline (2026-11-26):
+Latest run (`20261127-093044`, after heading-aware PDF sections and verifier v2), with the
+change against the first baseline (`20261126-145508`):
 
 | metric | simple | agentic |
 | --- | --- | --- |
-| answered (answerable) | 100% | 94% |
+| answered (answerable) | 100% | 97% (+3%) |
 | declined (unanswerable) | 100% | 100% |
-| faithfulness | 0.942 | 0.925 |
-| answer relevancy | 0.862 | 0.732 |
-| context precision | 0.822 | 0.805 |
-| context recall | 0.865 | 0.821 |
-| factual correctness | 0.545 | 0.504 |
-| latency p50 / p90 | 3.3 s / 5.4 s | 3.9 s / 7.6 s |
+| faithfulness | 0.963 (+0.021) | 0.975 (+0.050) |
+| answer relevancy | 0.865 (+0.003) | 0.788 (+0.056) |
+| context precision | 0.807 (-0.015) | 0.819 (+0.014) |
+| context recall | 0.880 (+0.015) | 0.836 (+0.015) |
+| factual correctness | 0.591 (+0.046) | 0.541 (+0.037) |
+| latency p50 / p90 | 2.0 s / 3.4 s | 3.7 s / 7.9 s |
 
 How to read it:
 
@@ -294,8 +295,12 @@ How to read it:
   not be trusted. A stronger, independent judge is a configuration change (`EVAL_JUDGE_*`).
 - Part of the agent's lower relevancy and correctness comes from its two declines, which score 0
   on those metrics. One of them replaced a confidently wrong answer (see [Agent](#agent)).
-- Both pipelines fail `rag-generator` ("which generator model does RAG use?"): the passage naming
-  BART-large is retrieved but not used. That is the next retrieval/generation issue to fix.
+- `rag-generator` ("which generator model does RAG use?") used to fail in both pipelines, for
+  two reasons found by tracing it: PDF chunks had no section context, so the answer passage ranked
+  20th; and the self-check, seeing that passage without its heading, rejected the correct answer
+  so the revision deleted it. Heading-aware PDF sections and verifier v2 fixed both (self-check
+  false alarms 18% -> 6%, planted false claims still 34/34 caught). The retrieval eval had hidden
+  the first problem because PDF labels were page-level; PDF labels now require the answer text.
 
 ## Answering
 

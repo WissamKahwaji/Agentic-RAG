@@ -16,7 +16,7 @@ by accident.
 | `kind` | `keyword`: hinges on exact terms or identifiers (`hnsw.ef_search`). `natural`: paraphrased, shares few words with the source |
 | `question` | The question as a user would ask it |
 | `reference` | A correct, complete answer written from the source passages (ground truth for context recall, context precision and factual correctness) |
-| `relevant` | Locations that answer it: `source` plus a heading-path prefix (`section`) or PDF `pages` |
+| `relevant` | Locations that answer it: `source` plus a heading-path prefix (`section`) or PDF `pages`, and for PDFs `contains` (phrases the passage must include, since a page holds many passages) |
 
 References state only what the sources say, in plain sentences, without citations. They were
 written by reading the labelled passages, and checked against the PDF text for numbers.
@@ -50,7 +50,8 @@ learning rate used to train RAG, ...). A good pipeline declines them. Used by
   No threshold separates "on topic" from "answerable" (the DiskANN question's passages score 0.89),
   so declining unanswerable questions is left to generation and self-check.
 - `make eval-selfcheck`: self-check false alarms on real answers vs detection of a planted false
-  claim. Per-claim checking: 18% false alarms, 100% detection (holistic: 59% / 100%).
+  claim. Per-claim checking: 6% false alarms, 100% detection with verify_claim v2 (sources shown
+  with title and heading); v1 18% / 100%; holistic 56-59% / 100%.
 - `make eval-answers`: simple vs agentic end to end; full answers saved to `evals/results/`
   (git-ignored) for review.
 
