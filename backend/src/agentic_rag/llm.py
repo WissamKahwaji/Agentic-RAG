@@ -218,6 +218,6 @@ class OpenAICompatibleProvider:
 
 def _retry_after_seconds(resp: httpx.Response, default: float) -> float:
     try:
-        return min(float(resp.headers.get("retry-after", default)), 30.0)
+        return min(float(resp.headers.get("retry-after", default)), 60.0)
     except ValueError:
         return default

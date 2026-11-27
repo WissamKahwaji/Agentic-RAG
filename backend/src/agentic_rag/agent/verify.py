@@ -46,11 +46,20 @@ class _Support(BaseModel):
 
 
 async def unsupported_claims(
-    llm: LLMProvider, answer: str, sources: list[RetrievedChunk]
+    llm: LLMProvider, answer: str, sources: list[RetrievedChunk], concurrency: int = 2
 ) -> list[str]:
-    """Return the claims whose cited sources do not support them (empty list = all good)."""
+    """Return the claims whose cited sources do not support them (empty list = all good).
+
+    Checks run with bounded concurrency: firing every claim at once bursts past hosted free-tier
+    rate limits (Groq: 8k tokens/minute) and turned one answer into a cascade of HTTP 429s.
+    """
+    gate = asyncio.Semaphore(concurrency)
 
     async def check(claim: Claim) -> str | None:
+        async with gate:
+            return await _check(claim)
+
+    async def _check(claim: Claim) -> str | None:
         cited = [sources[n - 1] for n in claim.cites if 1 <= n <= len(sources)]
         if not cited:
             return claim.text

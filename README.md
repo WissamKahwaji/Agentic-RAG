@@ -120,6 +120,31 @@ make app-down           # stop (database and model cache are kept)
   inside the Colima VM (4 vCPUs) versus ~0.35 s natively on Apple MPS. For CPU-only hosting a
   smaller reranker or a hosted reranking API is the practical choice.
 
+### Without Ollama (hosted LLM, CPU-only)
+
+Every model sits behind an interface, so the same code runs on a laptop GPU or a CPU-only host:
+
+```bash
+# .env
+LLM_PROVIDER=openai_compatible        # Groq, Gemini's OpenAI endpoint, OpenRouter, ...
+LLM_MODEL=qwen/qwen3.8-27b
+GROQ_API_KEY=...                      # free key from console.groq.com; never commit it
+EMBEDDING_PROVIDER=local              # bge-m3 in-process; identical vectors, no re-index
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+RELEVANCE_THRESHOLD=0.10
+```
+
+Measured on CPU (hybrid + rerank, 34 questions):
+
+| reranker | hit@1 | hit@5 | MRR | latency |
+| --- | --- | --- | --- | --- |
+| bge-reranker-v2-m3 (multilingual) | 82% | 100% | 0.896 | 1,817 ms |
+| ms-marco-MiniLM-L-6-v2 (English) | 88% | 97% | 0.912 | 164 ms |
+
+Groq's free tier allows 8,000 tokens per minute; an agentic answer with its claim checks uses
+about 5,000. Claim checks run with bounded concurrency and 429 responses are retried with
+backoff, so bursts slow down instead of failing.
+
 ### Configuration
 
 All configuration is via environment variables (see [`.env.example`](.env.example)).

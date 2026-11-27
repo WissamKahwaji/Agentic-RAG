@@ -35,6 +35,8 @@ class Settings(BaseSettings):
         default=None, validation_alias=AliasChoices("LLM_API_KEY", "GROQ_API_KEY")
     )
     llm_max_tokens: int = Field(default=1536, ge=64)
+    # Retries on HTTP 429. Free tiers (Groq: 8k tokens/minute) need more patience in batch runs.
+    llm_max_retries: int = Field(default=6, ge=0, le=20)
     # Where embeddings run: "ollama", or "local" (same model in-process; no Ollama needed).
     embedding_provider: Literal["ollama", "local"] = "ollama"
     # Hugging Face id of the model EMBEDDING_MODEL names in Ollama (bge-m3 in both).

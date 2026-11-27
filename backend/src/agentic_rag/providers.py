@@ -30,6 +30,7 @@ def build_llm(settings: Settings, http: httpx.AsyncClient) -> LLMProvider:
             settings.llm_api_key.get_secret_value(),
             settings.llm_model,
             max_tokens=settings.llm_max_tokens,
+            max_retries=settings.llm_max_retries,
         )
     return OllamaProvider(
         http,
