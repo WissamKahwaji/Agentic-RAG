@@ -12,8 +12,8 @@ Documents mode (default):
 Hybrid mode adds Corrective RAG: when the documents cannot answer (no passage passes grading,
 or the grounded answer declines), a router picks the fallback:
 
-    ... grade --(no relevant passages)--> route --web-----> web_search -> grade -> generate | refuse
-    ... generate --(declined)-----------> route --general-> answer_direct -> END
+    ... grade --(nothing relevant, even reformulated)--> route --web--> web_search -> grade
+    ... generate --(declined)---------------------------> route --general--> answer_direct
 
 Documents always come first by construction: every question is searched in the documents, and
 the router only runs after they failed. (An earlier design routed *before* retrieval; it sent
@@ -71,7 +71,8 @@ class AgentState(TypedDict, total=False):
     source: AnswerSource  # where `relevant` came from: documents or web
     web_searched: bool
 
-    search_query: str
+    standalone: str  # the question made self-contained; what web search and routing use
+    search_query: str  # the current document query (may be reformulated)
     tried_queries: list[str]
     candidates: list[RetrievedChunk]
     relevant: list[RetrievedChunk]
@@ -152,7 +153,11 @@ def build_agent_graph(
     async def condense(state: AgentState) -> AgentState:
         """Turn a follow-up ("what about IVFFlat?") into a standalone search query."""
         if not state.get("history"):
-            return {"search_query": state["question"], "tried_queries": []}
+            return {
+                "standalone": state["question"],
+                "search_query": state["question"],
+                "tried_queries": [],
+            }
         started = time.perf_counter()
         result = await chat_structured(
             llm,
@@ -163,7 +168,12 @@ def build_agent_graph(
             _Query,
         )
         step = TraceStep(step="condense", ms=_ms(started), detail=f"Searched for: {result.query}")
-        return {"search_query": result.query, "tried_queries": [], "trace": [step]}
+        return {
+            "standalone": result.query,
+            "search_query": result.query,
+            "tried_queries": [],
+            "trace": [step],
+        }
 
     async def retrieve(state: AgentState) -> AgentState:
         started = time.perf_counter()
@@ -179,7 +189,7 @@ def build_agent_graph(
     async def route(state: AgentState) -> AgentState:
         """The documents could not answer: choose web search or model knowledge (hybrid only)."""
         started = time.perf_counter()
-        result = await classify_route(llm, state["search_query"], config.corpus_description)
+        result = await classify_route(llm, state["standalone"], config.corpus_description)
         detail = f"{result.route}: {result.reason}" if result.reason else result.route
         return {
             "route": result.route,
@@ -188,8 +198,10 @@ def build_agent_graph(
 
     async def web_search(state: AgentState) -> AgentState:
         started = time.perf_counter()
-        results = await web.search(state["search_query"], config.web_results) if web else []
-        detail = f"{len(results)} web results for “{state['search_query']}”"
+        # Search the web with the user's question, not a query reworded for the documents.
+        query = state["standalone"]
+        results = await web.search(query, config.web_results) if web else []
+        detail = f"{len(results)} web results for “{query}”"
         return {
             "candidates": [web_result_to_chunk(r) for r in results],
             "source": "web",
@@ -226,8 +238,9 @@ def build_agent_graph(
         """Score each candidate with the cross-encoder; keep those above the threshold."""
         started = time.perf_counter()
         candidates = state["candidates"]
+        query = state["standalone"] if state.get("source") == "web" else state["search_query"]
         scores = await reranker.score(
-            state["search_query"], [f"{c.title} > {c.location}\n{c.content}" for c in candidates]
+            query, [f"{c.title} > {c.location}\n{c.content}" for c in candidates]
         )
         ranked = sorted(zip(candidates, scores, strict=True), key=lambda p: p[1], reverse=True)
         relevant = [replace(c, score=s) for c, s in ranked if s >= config.relevance_threshold][
@@ -324,12 +337,15 @@ def build_agent_graph(
     def after_grade(state: AgentState) -> Literal["generate", "reformulate", "route", "refuse"]:
         if state["relevant"]:
             return "generate"
-        if can_fall_back(state):
-            return "route"  # Corrective RAG: better sources beat another document query
+        # Documents first: retry the documents with a reformulated query before leaving them.
+        # (Skipping this in hybrid mode sent "Where are Swagger UI and ReDoc served?" to the web,
+        # although a reformulated document search answers it.)
         if state.get("source") == "documents" and (
             len(state["tried_queries"]) < config.max_retrieval_attempts
         ):
             return "reformulate"
+        if can_fall_back(state):
+            return "route"  # Corrective RAG: the documents failed, find another source
         return "refuse"
 
     def after_generate(state: AgentState) -> Literal["self_check", "route", "__end__"]:

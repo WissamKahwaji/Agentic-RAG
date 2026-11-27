@@ -258,6 +258,7 @@ async def test_hybrid_answers_from_documents_when_they_can() -> None:
 
 async def test_documents_miss_routes_to_web_with_url_citations() -> None:
     llm = ScriptedLLM(
+        reformulate=['{"query": "FastAPI CORS middleware"}'],
         route=[_route("web")],
         generate_web=["Add CORSMiddleware to the app [1]."],
         self_check=[_verdict(True)],
@@ -271,13 +272,16 @@ async def test_documents_miss_routes_to_web_with_url_citations() -> None:
     assert _steps(answer) == [
         "retrieve",
         "grade",
+        "reformulate",
+        "retrieve",
+        "grade",
         "route",
         "web_search",
         "grade",
         "generate",
         "self_check",
     ]
-    assert "reformulate" not in llm.calls
+    assert web.queries == ["How do I enable CORS?"]  # the user's question, not the doc rewrite
     assert answer.source == "web"
     assert answer.prompt == "web_grounded_answer@v1"
     assert answer.citations[0].source == "https://fastapi.tiangolo.com/tutorial/cors/"
@@ -285,13 +289,18 @@ async def test_documents_miss_routes_to_web_with_url_citations() -> None:
 
 
 async def test_documents_miss_routes_general_questions_to_model_knowledge() -> None:
-    llm = ScriptedLLM(route=[_route("general")], direct=["A vector is a list of numbers."])
+    llm = ScriptedLLM(
+        reformulate=['{"query": "vector definition"}'],
+        route=[_route("general")],
+        direct=["A vector is a list of numbers."],
+    )
 
     answer = await _service(llm, KeywordReranker("nothing"), FakeWeb()).answer(
         "What is a vector?", knowledge="hybrid"
     )
 
-    assert _steps(answer) == ["retrieve", "grade", "route", "answer_direct"]
+    assert _steps(answer)[-2:] == ["route", "answer_direct"]
+    assert "reformulate" in llm.calls  # documents were retried before leaving them
     assert answer.source == "model"
     assert answer.citations == []
     assert not answer.grounded
@@ -317,12 +326,12 @@ async def test_documents_that_do_not_answer_fall_back_once() -> None:
 
 
 async def test_web_with_no_results_declines() -> None:
-    llm = ScriptedLLM(route=[_route("web")])
+    llm = ScriptedLLM(reformulate=['{"query": "release notes"}'], route=[_route("web")])
 
     answer = await _service(llm, KeywordReranker("nothing"), FakeWeb(results=[])).answer(
         "Latest release?", knowledge="hybrid"
     )
 
-    assert _steps(answer) == ["retrieve", "grade", "route", "web_search", "grade", "refuse"]
+    assert _steps(answer)[-4:] == ["route", "web_search", "grade", "refuse"]
     assert answer.refused
     assert answer.source == "none"
