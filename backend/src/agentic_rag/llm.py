@@ -1,5 +1,6 @@
 """Chat-model access behind a small protocol, so local and hosted providers are interchangeable."""
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
@@ -135,3 +136,88 @@ class OllamaProvider:
             prompt_tokens=body.get("prompt_eval_count"),
             completion_tokens=body.get("eval_count"),
         )
+
+
+class OpenAICompatibleProvider:
+    """Any OpenAI-compatible chat API: Groq, Gemini's OpenAI endpoint, OpenRouter, vLLM, ...
+
+    JSON output uses `json_object` mode, which every compatible API supports, with the schema
+    stated in the system message; `chat_structured` then validates it. Rate limits (429) are
+    retried with backoff, honouring Retry-After, because free tiers hit them routinely.
+    """
+
+    def __init__(
+        self,
+        http: httpx.AsyncClient,
+        base_url: str,
+        api_key: str,
+        model: str,
+        max_tokens: int = 1536,
+        max_retries: int = 3,
+    ) -> None:
+        self._http = http
+        self._url = f"{base_url.rstrip('/')}/chat/completions"
+        self._headers = {"Authorization": f"Bearer {api_key}"}
+        self.model = model
+        self._max_tokens = max_tokens
+        self._max_retries = max_retries
+
+    async def chat(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        json_schema: dict[str, Any] | None = None,
+    ) -> LLMResult:
+        wire = [{"role": m.role, "content": m.content} for m in messages]
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": wire,
+            "temperature": temperature,
+            "max_tokens": self._max_tokens,
+        }
+        if json_schema is not None:
+            payload["response_format"] = {"type": "json_object"}
+            schema_note = f"\n\nReply with a JSON object matching this JSON Schema:\n{json_schema}"
+            if wire and wire[0]["role"] == "system":
+                wire[0] = {"role": "system", "content": wire[0]["content"] + schema_note}
+            else:
+                wire.insert(0, {"role": "system", "content": schema_note.strip()})
+
+        body = await self._post(payload)
+        choice = (body.get("choices") or [{}])[0]
+        text = choice.get("message", {}).get("content")
+        if not isinstance(text, str):
+            raise LLMError("chat completion had no message content")
+        usage = body.get("usage") or {}
+        return LLMResult(
+            text=text,
+            model=self.model,
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+        )
+
+    async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        for attempt in range(self._max_retries + 1):
+            try:
+                resp = await self._http.post(self._url, json=payload, headers=self._headers)
+            except httpx.HTTPError as exc:
+                raise LLMError(f"chat completion request failed: {exc}") from exc
+            if resp.status_code == 429 and attempt < self._max_retries:
+                delay = _retry_after_seconds(resp, default=2.0 * (attempt + 1))
+                logger.warning("rate limited by %s; retrying in %.1fs", self._url, delay)
+                await asyncio.sleep(delay)
+                continue
+            if resp.status_code >= 400:
+                # Never log the request (it carries the API key in a header); the body is safe.
+                raise LLMError(f"chat completion failed: HTTP {resp.status_code} {resp.text[:300]}")
+            result: dict[str, Any] = resp.json()
+            return result
+        raise LLMError("chat completion failed: still rate limited after retries")
+
+
+def _retry_after_seconds(resp: httpx.Response, default: float) -> float:
+    try:
+        return min(float(resp.headers.get("retry-after", default)), 30.0)
+    except ValueError:
+        return default

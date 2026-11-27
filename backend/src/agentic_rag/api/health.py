@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from agentic_rag import db
 from agentic_rag.api.deps import get_engine, get_http_client
 from agentic_rag.config import Settings, get_settings
+from agentic_rag.providers import uses_ollama
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ops"])
@@ -37,7 +38,22 @@ def get_health_checks(
         resp = await http.get(f"{settings.ollama_base_url}/api/tags", timeout=5.0)
         resp.raise_for_status()
 
-    return {"database": database, "ollama": ollama}
+    async def llm_api() -> None:
+        # Lists models: authenticates the key without spending tokens.
+        key = settings.llm_api_key.get_secret_value() if settings.llm_api_key else ""
+        resp = await http.get(
+            f"{settings.llm_base_url.rstrip('/')}/models",
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=5.0,
+        )
+        resp.raise_for_status()
+
+    checks: dict[str, HealthCheck] = {"database": database}
+    if uses_ollama(settings):
+        checks["ollama"] = ollama
+    if settings.llm_provider == "openai_compatible":
+        checks["llm_api"] = llm_api
+    return checks
 
 
 @router.get("/health/live")

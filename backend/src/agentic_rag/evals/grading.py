@@ -41,7 +41,9 @@ async def main() -> None:
             embedder = OllamaEmbedder(
                 http, settings.ollama_base_url, settings.embedding_model, settings.embedding_dim
             )
-            reranker = CrossEncoderReranker(settings.reranker_model)
+            reranker = CrossEncoderReranker(
+                settings.reranker_model, device=settings.reranker_device
+            )
             await reranker.warm_up()
             first_stage = build_retriever(
                 "hybrid", db.create_session_factory(engine), embedder, settings

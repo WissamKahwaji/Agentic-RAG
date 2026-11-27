@@ -32,8 +32,15 @@ class CrossEncoderReranker:
     event loop responsive; a lock serialises calls because the model is not thread-safe.
     """
 
-    def __init__(self, model_name: str, max_length: int = 512, batch_size: int = 16) -> None:
+    def __init__(
+        self,
+        model_name: str,
+        max_length: int = 512,
+        batch_size: int = 16,
+        device: str | None = None,
+    ) -> None:
         self.model_name = model_name
+        self._device = device
         self._max_length = max_length
         self._batch_size = batch_size
         self._model: object | None = None
@@ -44,9 +51,17 @@ class CrossEncoderReranker:
             import torch  # heavy imports deferred so the API starts fast without reranking
             from sentence_transformers import CrossEncoder
 
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            device = self._device or ("mps" if torch.backends.mps.is_available() else "cpu")
             logger.info("loading reranker %s on %s", self.model_name, device)
-            self._model = CrossEncoder(self.model_name, max_length=self._max_length, device=device)
+            # Some cross-encoders output probabilities (bge rerankers), others raw logits
+            # (ms-marco MiniLM). A sigmoid on every model puts all scores on one 0-1 scale, so a
+            # relevance threshold means the same thing whichever model is configured.
+            self._model = CrossEncoder(
+                self.model_name,
+                max_length=self._max_length,
+                device=device,
+                activation_fn=torch.nn.Sigmoid(),
+            )
         return self._model
 
     def _score_sync(self, query: str, passages: list[str]) -> list[float]:

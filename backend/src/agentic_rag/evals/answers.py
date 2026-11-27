@@ -94,7 +94,7 @@ def report(mode: str, rows: list[dict[str, object]]) -> None:
 
 async def main(modes: list[str]) -> None:
     settings = get_settings()
-    reranker = CrossEncoderReranker(settings.reranker_model)
+    reranker = CrossEncoderReranker(settings.reranker_model, device=settings.reranker_device)
     await reranker.warm_up()
     RESULTS.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")

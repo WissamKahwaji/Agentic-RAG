@@ -36,13 +36,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from agentic_rag import db, prompts
 from agentic_rag.answering import Answer, Knowledge, QuestionAnswerer, strip_citations
 from agentic_rag.config import REPO_ROOT, Settings, get_settings
-from agentic_rag.embeddings import OllamaEmbedder
 from agentic_rag.evals.grading import UNANSWERABLE, load_unanswerable
 from agentic_rag.evals.metrics import GoldenQuestion, summarize
 from agentic_rag.evals.retrieval import GOLDEN, evaluate, load_golden
-from agentic_rag.llm import OllamaProvider
 from agentic_rag.main import build_answer_service
-from agentic_rag.reranking import CrossEncoderReranker
+from agentic_rag.providers import build_embedder, build_llm, build_reranker
 from agentic_rag.search import build_retriever
 
 os.environ.setdefault("RAGAS_DO_NOT_TRACK", "true")  # no telemetry from the eval library
@@ -382,18 +380,14 @@ async def main(
     unanswerable = load_unanswerable()[:limit] if limit else load_unanswerable()
     judge = Judge.create(cfg) if judge_enabled else None
 
-    reranker = CrossEncoderReranker(settings.reranker_model)
+    reranker = build_reranker(settings)
     await reranker.warm_up()
     engine = db.create_engine(str(settings.database_url))
     try:
         async with httpx.AsyncClient(timeout=settings.http_timeout_s) as http:
             sessions = db.create_session_factory(engine)
-            embedder = OllamaEmbedder(
-                http, settings.ollama_base_url, settings.embedding_model, settings.embedding_dim
-            )
-            llm = OllamaProvider(
-                http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
-            )
+            embedder = build_embedder(settings, http)
+            llm = build_llm(settings, http)
 
             retriever = build_retriever(
                 settings.retrieval_mode, sessions, embedder, settings, reranker

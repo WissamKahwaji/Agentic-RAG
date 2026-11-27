@@ -10,8 +10,8 @@ import httpx
 
 from agentic_rag import db
 from agentic_rag.config import get_settings
-from agentic_rag.embeddings import OllamaEmbedder
 from agentic_rag.ingestion.pipeline import IngestionService, IngestResult
+from agentic_rag.providers import build_embedder
 
 
 async def run(path: Path) -> list[IngestResult]:
@@ -21,13 +21,7 @@ async def run(path: Path) -> list[IngestResult]:
         async with httpx.AsyncClient(timeout=settings.http_timeout_s) as http:
             service = IngestionService(
                 session_factory=db.create_session_factory(engine),
-                embedder=OllamaEmbedder(
-                    http,
-                    settings.ollama_base_url,
-                    settings.embedding_model,
-                    settings.embedding_dim,
-                    settings.embed_batch_size,
-                ),
+                embedder=build_embedder(settings, http),
                 chunk_size=settings.chunk_size,
                 chunk_overlap=settings.chunk_overlap,
             )

@@ -13,10 +13,11 @@ from agentic_rag.agent import AgentAnswerService, AgentConfig
 from agentic_rag.answering import AnswerService, QuestionAnswerer
 from agentic_rag.api import ask, documents, health
 from agentic_rag.config import Settings, get_settings
-from agentic_rag.embeddings import Embedder, OllamaEmbedder
-from agentic_rag.llm import LLMProvider, OllamaProvider
+from agentic_rag.embeddings import Embedder
+from agentic_rag.llm import LLMProvider
 from agentic_rag.models import EMBEDDING_DIM
-from agentic_rag.reranking import CrossEncoderReranker, Reranker
+from agentic_rag.providers import build_embedder, build_llm, build_reranker
+from agentic_rag.reranking import Reranker
 from agentic_rag.search import build_retriever
 from agentic_rag.web import MetaWebSearch, TavilyWebSearch, WebSearch
 
@@ -38,7 +39,7 @@ async def build_answer_service(
 ) -> QuestionAnswerer:
     needs_reranker = settings.answer_mode == "agentic" or "rerank" in settings.retrieval_mode
     if needs_reranker and reranker is None:
-        model = CrossEncoderReranker(settings.reranker_model)
+        model = build_reranker(settings)
         await model.warm_up()  # load the model now, so the first question doesn't pay for it
         reranker = model
 
@@ -91,16 +92,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = db.create_engine(str(settings.database_url))
         app.state.session_factory = db.create_session_factory(app.state.engine)
         app.state.http = httpx.AsyncClient(timeout=settings.http_timeout_s)
-        embedder = OllamaEmbedder(
-            app.state.http,
-            settings.ollama_base_url,
-            settings.embedding_model,
-            settings.embedding_dim,
-            settings.embed_batch_size,
-        )
-        llm = OllamaProvider(
-            app.state.http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
-        )
+        embedder = build_embedder(settings, app.state.http)
+        llm = build_llm(settings, app.state.http)
         app.state.answer_service = await build_answer_service(
             settings, app.state.session_factory, embedder, llm, app.state.http
         )

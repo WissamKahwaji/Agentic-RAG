@@ -83,7 +83,9 @@ async def main() -> None:
             llm = OllamaProvider(
                 http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
             )
-            reranker = CrossEncoderReranker(settings.reranker_model)
+            reranker = CrossEncoderReranker(
+                settings.reranker_model, device=settings.reranker_device
+            )
             retriever = build_retriever(
                 "hybrid+rerank", db.create_session_factory(engine), embedder, settings, reranker
             )

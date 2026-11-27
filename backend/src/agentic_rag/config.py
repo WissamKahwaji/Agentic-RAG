@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PostgresDsn
+from pydantic import AliasChoices, Field, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     database_url: PostgresDsn = PostgresDsn("postgresql+psycopg://rag:rag@localhost:5432/rag")
 
     ollama_base_url: str = "http://localhost:11434"
+
+    # Where the LLM runs: "ollama" (local) or any OpenAI-compatible API (Groq, Gemini, ...).
+    llm_provider: Literal["ollama", "openai_compatible"] = "ollama"
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    # Accepted as LLM_API_KEY or GROQ_API_KEY. Never logged.
+    llm_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("LLM_API_KEY", "GROQ_API_KEY")
+    )
+    llm_max_tokens: int = Field(default=1536, ge=64)
+    # Where embeddings run: "ollama", or "local" (same model in-process; no Ollama needed).
+    embedding_provider: Literal["ollama", "local"] = "ollama"
+    # Hugging Face id of the model EMBEDDING_MODEL names in Ollama (bge-m3 in both).
+    local_embedding_model: str = "BAAI/bge-m3"
     llm_model: str = "qwen2.5:7b"
     # 5 chunks x ~300 tokens + instructions + answer fits comfortably in 8k.
     llm_num_ctx: int = Field(default=8192, ge=2048)
@@ -48,6 +61,8 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     # 10 matched 20 and 30 on hit@1/MRR at half the latency; raise it for large corpora.
     rerank_candidates: int = Field(default=10, ge=5, le=100)
+    # None = Apple GPU (MPS) when available, else CPU. Set "cpu" to measure CPU-only hosting.
+    reranker_device: str | None = None
 
     # "simple": one retrieve-then-generate pass. "agentic": the LangGraph agent (agent/graph.py).
     answer_mode: Literal["simple", "agentic"] = "agentic"

@@ -60,7 +60,9 @@ async def main(modes: list[str], verbose: bool) -> None:
             sessions = db.create_session_factory(engine)
             reranker = None
             if any("rerank" in m for m in modes):
-                reranker = CrossEncoderReranker(settings.reranker_model)
+                reranker = CrossEncoderReranker(
+                    settings.reranker_model, device=settings.reranker_device
+                )
                 await reranker.warm_up()  # model download/load is not query latency
 
             print(
