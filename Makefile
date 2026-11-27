@@ -3,7 +3,7 @@ BACKEND := backend
 FRONTEND := frontend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help setup up down reset migrate dev web ask corpus ingest eval eval-quick eval-routing eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
+.PHONY: help setup up down reset migrate dev web app app-down app-logs ask corpus ingest eval eval-quick eval-routing eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -36,6 +36,15 @@ dev: ## Run the API with auto-reload on http://localhost:8000
 
 web: ## Run the chat UI on http://localhost:3000 (needs `make dev` running)
 	cd $(FRONTEND) && npm run dev
+
+app: ## Build and run the whole app in containers (Postgres, migrations, API, UI) on :3000
+	docker compose --profile app up -d --build --wait
+
+app-down: ## Stop the containerised app (data and model cache are kept)
+	docker compose --profile app down
+
+app-logs: ## Follow API and UI container logs
+	docker compose --profile app logs -f api web
 
 ask: ## Ask the running API a question: make ask Q="How do I create an HNSW index?"
 	@cd $(BACKEND) && uv run python -m agentic_rag.ask_cli "$(Q)"

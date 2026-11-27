@@ -102,6 +102,24 @@ curl localhost:8000/health
 # {"status":"ok","checks":{"database":"ok","ollama":"ok"}}
 ```
 
+### Run everything in containers
+
+```bash
+ollama serve            # Ollama stays on the host (Metal GPU); containers reach it
+make app                # builds and starts Postgres, migrations, API and UI; waits until healthy
+open http://localhost:3000
+make app-down           # stop (database and model cache are kept)
+```
+
+- The API image is a two-stage uv build running as a non-root user, with CPU-only PyTorch
+  (~690 MB of the ~2 GB image). The UI image is Next.js's standalone server (~330 MB).
+- Migrations run as a one-shot `migrate` service; the API starts only after it succeeds.
+- `/health/live` (liveness, no dependency checks) drives container health; `/health`
+  (readiness) still reports database and Ollama.
+- Measured cost of CPU-only containers: the cross-encoder reranker takes ~8.5 s per question
+  inside the Colima VM (4 vCPUs) versus ~0.35 s natively on Apple MPS. For CPU-only hosting a
+  smaller reranker or a hosted reranking API is the practical choice.
+
 ### Configuration
 
 All configuration is via environment variables (see [`.env.example`](.env.example)).

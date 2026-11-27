@@ -1,4 +1,6 @@
-# Local infrastructure. Ollama runs natively on the host (Metal GPU access), not in Docker.
+# Development: `make up` starts only Postgres; the API and UI run on the host (`make dev`, `make web`).
+# Full app in containers: `make app` (profile "app": Postgres, migrations, API, UI).
+# Ollama always runs natively on the host (Metal GPU); containers reach it via host.docker.internal.
 name: agentic-rag
 
 services:
@@ -20,5 +22,55 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot job: apply migrations, then exit. The API starts only if it succeeded, so the app
+  # never runs against an outdated schema (and several API replicas never race to migrate).
+  migrate:
+    profiles: ["app"]
+    build: ./backend
+    image: agentic-rag-api
+    command: ["alembic", "upgrade", "head"]
+    environment: &api-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD:-rag}@postgres:5432/${POSTGRES_DB:-rag}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    profiles: ["app"]
+    image: agentic-rag-api
+    restart: unless-stopped
+    environment: *api-env
+    env_file:
+      - path: .env
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - model-cache:/home/app/.cache/huggingface
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    profiles: ["app"]
+    build: ./frontend
+    image: agentic-rag-web
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://api:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  # Reranker weights (~2.3 GB) downloaded on first start and kept across rebuilds.
+  model-cache:

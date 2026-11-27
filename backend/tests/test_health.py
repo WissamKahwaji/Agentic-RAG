@@ -41,3 +41,14 @@ async def test_health_against_real_stack(client: httpx.AsyncClient) -> None:
     resp = await client.get("/health")
 
     assert resp.status_code == 200, resp.json()
+
+
+async def test_liveness_does_not_check_dependencies(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    _override(app, {"database": _fail, "ollama": _fail})
+
+    resp = await client.get("/health/live")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}

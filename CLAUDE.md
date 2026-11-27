@@ -48,7 +48,8 @@ backend/tests/             pytest; markers: `integration` = needs Postgres, `oll
 frontend/src/app/          page + /api/* Route Handlers that proxy to FastAPI
 frontend/src/components/   chat UI (client components)
 frontend/src/lib/          API types (mirror backend Pydantic models), citation parsing
-docker-compose.yml         Postgres + pgvector
+docker-compose.yml         Postgres (dev); profile "app": migrate + api + web containers
+backend/Dockerfile, frontend/Dockerfile   multi-stage, non-root images
 ```
 
 ## Commands (run from repo root)
@@ -69,6 +70,7 @@ make eval-grading    # relevance-threshold calibration
 make eval-selfcheck  # self-check false alarms vs planted false claims
 make eval-answers    # simple vs agentic end to end (~10 min)
 make web        # chat UI on :3000 (needs `make dev`)
+make app        # whole app in containers on :3000 (Ollama stays on the host)
 make check      # backend + frontend lint, types, unit tests  <- must pass before "done"
 make test-all   # includes integration tests (needs `make up` + Ollama)
 ```

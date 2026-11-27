@@ -40,6 +40,13 @@ def get_health_checks(
     return {"database": database, "ollama": ollama}
 
 
+@router.get("/health/live")
+async def live() -> dict[str, str]:
+    """Liveness: the process is up and serving. Unlike /health it checks no dependencies, so a
+    container orchestrator does not restart the API just because Ollama is briefly down."""
+    return {"status": "ok"}
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health(
     response: Response,
