@@ -10,9 +10,10 @@ prompting is measured with an evaluation suite.
 
 Runs fully locally on free, open models. Hosted model providers plug in behind the same interface.
 
-> **Status:** milestones 1-4 complete: cited answers, chat UI, measured hybrid retrieval with
-> reranking, an agentic graph with self-checking, and an evaluation suite. Deployment is next.
-> See [Roadmap](#roadmap).
+> **Status:** feature-complete for local and container use: cited answers, chat UI, measured hybrid
+> retrieval with reranking, an agentic graph with self-checking and optional web fallback, an
+> evaluation suite, CI, Docker, hosted-model support and Langfuse tracing. Public deployment is
+> deferred.
 
 ![Chat UI: an answer with numbered citation markers next to the evidence passages they point to](docs/screenshot.png)
 
@@ -478,11 +479,11 @@ Project layout:
 - [x] **Milestone 2: Retrieval quality:** labelled retrieval eval, hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [x] **Milestone 3: Agentic graph:** follow-up condensing, calibrated passage grading, query reformulation, per-claim self-check, bounded loops, step trace
 - [x] **Milestone 4: Evaluation:** Ragas suite on a versioned dataset with reference answers; faithfulness, answer relevancy, context precision/recall, factual correctness; reports with config snapshots and baseline deltas
-- [ ] **Milestone 5: Production:**
+- [x] **Milestone 5: Production** (public deployment deferred):
   - [x] CI (GitHub Actions), Docker images and one-command compose
   - [x] Hosted LLM provider (Groq / OpenAI-compatible), CPU-only embeddings and reranker
   - [x] Tracing with Langfuse
-  - [ ] Free public deployment
+  - [ ] Public deployment (deferred; the stack is container-ready, with Cloud Run + Neon + Vercel as the evaluated free-tier plan)
 
 ## License
 
