@@ -5,6 +5,7 @@ Loaders are synchronous (pypdf is sync); call them via `asyncio.to_thread` from 
 
 import hashlib
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -81,15 +82,72 @@ def load_file(path: Path, source: str | None = None) -> LoadedDocument:
 
 
 def _load_pdf(path: Path) -> tuple[str | None, list[Section]]:
+    """One section per (page, heading) span, so PDF chunks carry heading context like Markdown.
+
+    A section that continues onto the next page keeps its heading there.
+    """
     reader = PdfReader(path)
-    sections = [
-        Section(text=text, page=number)
-        for number, page in enumerate(reader.pages, start=1)
-        if (text := _normalize_pdf_text(page.extract_text() or ""))
-    ]
+    sections: list[Section] = []
+    heading: str | None = None
+    for number, page in enumerate(reader.pages, start=1):
+        headings: list[str] = []
+        raw = page.extract_text(visitor_text=_heading_collector(headings)) or ""
+        text = _normalize_pdf_text(raw)
+        for part, part_heading in _split_at_headings(text, headings, heading):
+            if part.strip():
+                sections.append(Section(text=part.strip(), page=number, heading=part_heading))
+            heading = part_heading
     meta_title = (reader.metadata.title or "").strip() if reader.metadata else ""
     title = meta_title or (_largest_text(reader.pages[0]) if reader.pages else None)
     return title, sections
+
+
+# Numbered or lettered headings ("2.3 Generator: BART", "A Implementation Details") and the
+# standard unnumbered ones. Bold run-in labels like "RAG-Token Model" are deliberately ignored.
+_NUMBERED_HEADING = re.compile(r"^(?:\d{1,2}(?:\.\d{1,2}){0,3}|[A-H])\s+[A-Z][^\n]{1,80}$")
+_NAMED_HEADINGS = {
+    "Abstract",
+    "Acknowledgments",
+    "Acknowledgements",
+    "Appendix",
+    "Appendices",
+    "Broader Impact",
+    "Conclusion",
+    "Conclusions",
+    "References",
+}
+_HEADING_FONT_HINTS = ("bold", "medi", "semibold", "black", "heavy", "cmbx")
+
+
+def _heading_collector(found: list[str]) -> Callable[..., None]:
+    """pypdf text visitor that records numbered headings set in a bold/medium font."""
+
+    def visit(text: str, cm: object, tm: object, font: object, size: float) -> None:
+        candidate = " ".join(text.split())
+        name = str(font.get("/BaseFont", "")) if isinstance(font, dict) else ""
+        is_heading_font = any(hint in name.lower() for hint in _HEADING_FONT_HINTS)
+        if is_heading_font and (_NUMBERED_HEADING.match(candidate) or candidate in _NAMED_HEADINGS):
+            found.append(candidate)
+
+    return visit
+
+
+def _split_at_headings(
+    text: str, headings: list[str], current: str | None
+) -> list[tuple[str, str | None]]:
+    """Cut page text where each detected heading occurs; text before the first heading keeps
+    the heading carried over from the previous page."""
+    parts: list[tuple[str, str | None]] = []
+    position = 0
+    for heading in headings:
+        index = text.find(heading, position)
+        if index < 0:
+            continue  # extraction joined or reordered the heading; keep the text together
+        parts.append((text[position:index], current))
+        current = heading
+        position = index + len(heading)
+    parts.append((text[position:], current))
+    return parts
 
 
 def _largest_text(page: PageObject) -> str | None:

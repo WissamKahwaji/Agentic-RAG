@@ -36,3 +36,10 @@ def test_first_relevant_rank_and_summary() -> None:
     assert s.mrr_at_10 == (1 + 0.5 + 0 + 1 / 7) / 4
     assert s.p50_ms == 20.0
     assert s.misses == ["c", "d"]
+
+
+def test_contains_requires_the_answer_text_in_the_passage() -> None:
+    span = RelevantSpan(source="paper.pdf", pages=[3], contains=["BART-large"])
+
+    assert span.matches(make_chunk("We use BART-large.", source="paper.pdf", page=3, section=None))
+    assert not span.matches(make_chunk("Other text.", source="paper.pdf", page=3, section=None))

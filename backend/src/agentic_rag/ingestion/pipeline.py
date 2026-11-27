@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 IngestStatus = Literal["created", "updated", "unchanged", "skipped"]
 
 # Bump when loading or chunking logic changes, so unchanged files are still re-processed.
-PIPELINE_VERSION = 3
+PIPELINE_VERSION = 4
 
 
 @dataclass(frozen=True)

@@ -47,9 +47,9 @@ class RetrievedChunk:
 
     @property
     def location(self) -> str:
-        """Human-readable citation location, e.g. `page 6` or `pgvector > HNSW`."""
+        """Human-readable citation location: `page 3 · 2.3 Generator: BART`, `pgvector > HNSW`."""
         if self.page is not None:
-            return f"page {self.page}"
+            return f"page {self.page} · {self.section}" if self.section else f"page {self.page}"
         return self.section or self.title
 
 

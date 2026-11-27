@@ -17,9 +17,15 @@ class RelevantSpan(BaseModel):
     source: str
     section: str | None = None
     pages: list[int] | None = None
+    # Passage-level precision for coarse locations (a whole PDF page): the chunk must also
+    # contain one of these phrases. Without it, any chunk from the right page counted as a hit,
+    # which hid a passage that was never retrieved (rag-generator, 2026-11-27).
+    contains: list[str] | None = None
 
     def matches(self, chunk: RetrievedChunk) -> bool:
         if chunk.source != self.source:
+            return False
+        if self.contains is not None and not any(p in chunk.content for p in self.contains):
             return False
         if self.pages is not None:
             return chunk.page in self.pages

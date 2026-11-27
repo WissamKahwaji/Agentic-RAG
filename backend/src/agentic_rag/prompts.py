@@ -124,7 +124,7 @@ def revision_note(unsupported_claims: list[str]) -> str:
 
 VERIFY_CLAIM = Prompt(
     name="verify_claim",
-    version=1,
+    version=2,  # v2: sources carry title + heading context (see verify_claim_user_message)
     system="""Decide whether a claim is supported by the source text.
 
 Supported means the source states the claim or it follows directly from the source. Different
@@ -136,7 +136,10 @@ Reply with JSON: {"supported": true} or {"supported": false}.""",
 
 
 def verify_claim_user_message(claim: str, sources: list[RetrievedChunk]) -> str:
-    text = "\n\n---\n\n".join(c.content for c in sources)
+    # Each source starts with its document title and heading path. Without it the verifier
+    # cannot link "We use BART-large" to "the RAG generator" (section "2.3 Generator: BART")
+    # and rejected correct claims 3/3 times; with it, 3/3 accepted, false claims still rejected.
+    text = "\n\n---\n\n".join(f"{c.title} > {c.location}\n{c.content}" for c in sources)
     return f"Source:\n{text}\n\n===\n\nClaim: {claim}"
 
 

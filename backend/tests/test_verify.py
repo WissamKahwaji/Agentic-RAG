@@ -43,3 +43,16 @@ async def test_claim_citing_a_missing_source_is_unsupported_without_a_model_call
 
     assert flagged == ["This cites nothing real."]
     assert llm.received == []
+
+
+async def test_verifier_sees_each_source_with_its_title_and_heading() -> None:
+    llm = FakeLLM('{"supported": true}')
+    source = make_chunk(
+        "We use BART-large.", title="RAG paper", page=3, section="2.3 Generator: BART"
+    )
+
+    await unsupported_claims(llm, "The generator is BART-large [1].", [source])
+
+    assert (
+        "RAG paper > page 3 · 2.3 Generator: BART\nWe use BART-large." in llm.received[0][1].content
+    )
