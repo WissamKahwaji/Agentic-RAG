@@ -9,11 +9,15 @@ from agentic_rag.answering import HistoryTurn
 from agentic_rag.llm import ChatMessage
 from agentic_rag.prompts import (
     CONDENSE_QUESTION,
+    DIRECT_ANSWER,
     GROUNDED_ANSWER,
     NO_ANSWER,
     REFORMULATE_QUERY,
+    ROUTE_QUESTION,
     VERIFY_CLAIM,
+    WEB_GROUNDED_ANSWER,
 )
+from agentic_rag.web import WebResult
 from tests.fakes import FakeLLM, FakeRetriever, make_chunk
 
 
@@ -43,8 +47,12 @@ class ScriptedLLM(FakeLLM):
             REFORMULATE_QUERY.system: "reformulate",
             VERIFY_CLAIM.system: "self_check",
             GROUNDED_ANSWER.system: "generate",
+            WEB_GROUNDED_ANSWER.system: "generate_web",
+            DIRECT_ANSWER.system: "direct",
         }
-        name = names[messages[0].content]
+        system = messages[0].content
+        route_prefix = ROUTE_QUESTION.system.split("{corpus}")[0]
+        name = "route" if system.startswith(route_prefix) else names[system]
         self.calls.append(name)
         return next(self.scripts[name])
 
@@ -54,9 +62,39 @@ def _verdict(supported: bool, *_claims: str) -> str:
     return json.dumps({"supported": supported})
 
 
-def _service(llm: ScriptedLLM, reranker: QueryReranker, **config: Any) -> AgentAnswerService:
+class FakeWeb:
+    name = "fake"
+
+    def __init__(self, results: list[WebResult] | None = None) -> None:
+        self.results = (
+            results
+            if results is not None
+            else [
+                WebResult(
+                    "CORS - FastAPI",
+                    "https://fastapi.tiangolo.com/tutorial/cors/",
+                    "Use CORSMiddleware.",
+                )
+            ]
+        )
+        self.queries: list[str] = []
+
+    async def search(self, query: str, k: int) -> list[WebResult]:
+        self.queries.append(query)
+        return self.results[:k]
+
+
+def _service(
+    llm: ScriptedLLM, reranker: QueryReranker, web: FakeWeb | None = None, **config: Any
+) -> AgentAnswerService:
     retriever = FakeRetriever([make_chunk("HNSW builds a graph."), make_chunk("Other text.")])
-    return AgentAnswerService(retriever, reranker, llm, top_k=5, config=AgentConfig(**config))
+    return AgentAnswerService(
+        retriever, reranker, llm, top_k=5, config=AgentConfig(**config), web=web
+    )
+
+
+def _route(route: str) -> str:
+    return json.dumps({"route": route, "reason": "test"})
 
 
 def _steps(answer: Any) -> list[str]:
@@ -178,3 +216,113 @@ async def test_grading_keeps_at_most_top_k_passages() -> None:
     generate_prompt = llm.received[0][1].content
     assert "[3]" in generate_prompt
     assert "[4]" not in generate_prompt
+
+
+# ---------------------------------------------------------------- hybrid knowledge
+
+
+class KeywordReranker(QueryReranker):
+    """Relevant only for passages containing `keyword` (documents fail, web results pass)."""
+
+    def __init__(self, keyword: str) -> None:
+        super().__init__()
+        self.keyword = keyword
+
+    async def score(self, query: str, passages: list[str]) -> list[float]:
+        self.queries.append(query)
+        return [0.9 if self.keyword in p else 0.01 for p in passages]
+
+
+async def test_documents_mode_never_routes_or_searches_the_web() -> None:
+    llm = ScriptedLLM(reformulate=['{"query": "other"}'])
+    web = FakeWeb()
+
+    answer = await _service(llm, KeywordReranker("CORSMiddleware"), web).answer("Q?")
+
+    assert "route" not in llm.calls
+    assert web.queries == []
+    assert answer.source == "none"
+
+
+async def test_hybrid_answers_from_documents_when_they_can() -> None:
+    llm = ScriptedLLM(generate=["HNSW builds a graph [1]."], self_check=[_verdict(True)])
+
+    answer = await _service(llm, QueryReranker(), FakeWeb()).answer(
+        "What is HNSW?", knowledge="hybrid"
+    )
+
+    assert _steps(answer) == ["retrieve", "grade", "generate", "self_check"]
+    assert answer.source == "documents"
+    assert "route" not in llm.calls
+
+
+async def test_documents_miss_routes_to_web_with_url_citations() -> None:
+    llm = ScriptedLLM(
+        route=[_route("web")],
+        generate_web=["Add CORSMiddleware to the app [1]."],
+        self_check=[_verdict(True)],
+    )
+    web = FakeWeb()
+
+    answer = await _service(llm, KeywordReranker("CORSMiddleware"), web).answer(
+        "How do I enable CORS?", knowledge="hybrid"
+    )
+
+    assert _steps(answer) == [
+        "retrieve",
+        "grade",
+        "route",
+        "web_search",
+        "grade",
+        "generate",
+        "self_check",
+    ]
+    assert "reformulate" not in llm.calls
+    assert answer.source == "web"
+    assert answer.prompt == "web_grounded_answer@v1"
+    assert answer.citations[0].source == "https://fastapi.tiangolo.com/tutorial/cors/"
+    assert answer.citations[0].location == "fastapi.tiangolo.com"
+
+
+async def test_documents_miss_routes_general_questions_to_model_knowledge() -> None:
+    llm = ScriptedLLM(route=[_route("general")], direct=["A vector is a list of numbers."])
+
+    answer = await _service(llm, KeywordReranker("nothing"), FakeWeb()).answer(
+        "What is a vector?", knowledge="hybrid"
+    )
+
+    assert _steps(answer) == ["retrieve", "grade", "route", "answer_direct"]
+    assert answer.source == "model"
+    assert answer.citations == []
+    assert not answer.grounded
+    assert answer.self_check is None
+
+
+async def test_documents_that_do_not_answer_fall_back_once() -> None:
+    llm = ScriptedLLM(
+        generate=[NO_ANSWER],
+        route=[_route("web")],
+        generate_web=["Use CORSMiddleware [1]."],
+        self_check=[_verdict(True)],
+    )
+    web = FakeWeb()
+
+    answer = await _service(llm, QueryReranker(), web).answer(
+        "Does it support X?", knowledge="hybrid"
+    )
+
+    assert _steps(answer)[:5] == ["retrieve", "grade", "generate", "route", "web_search"]
+    assert answer.source == "web"
+    assert len(web.queries) == 1
+
+
+async def test_web_with_no_results_declines() -> None:
+    llm = ScriptedLLM(route=[_route("web")])
+
+    answer = await _service(llm, KeywordReranker("nothing"), FakeWeb(results=[])).answer(
+        "Latest release?", knowledge="hybrid"
+    )
+
+    assert _steps(answer) == ["retrieve", "grade", "route", "web_search", "grade", "refuse"]
+    assert answer.refused
+    assert answer.source == "none"

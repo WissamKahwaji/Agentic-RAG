@@ -3,7 +3,7 @@ BACKEND := backend
 FRONTEND := frontend
 UV := cd $(BACKEND) && uv run
 
-.PHONY: help setup up down reset migrate dev web ask corpus ingest eval eval-quick eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
+.PHONY: help setup up down reset migrate dev web ask corpus ingest eval eval-quick eval-routing eval-retrieval eval-grading eval-selfcheck eval-answers lint format typecheck test test-all check web-check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ eval-quick: ## Smoke-run the suite on 5 questions per set
 
 eval-retrieval: ## Score retrieval pipelines on the golden set (needs `make up` + corpus)
 	$(UV) python -m agentic_rag.evals.retrieval -v
+
+eval-routing: ## Hybrid router accuracy on questions the documents cannot answer
+	$(UV) python -m agentic_rag.evals.routing
 
 eval-grading: ## Calibrate the passage relevance threshold (reranker scores)
 	$(UV) python -m agentic_rag.evals.grading

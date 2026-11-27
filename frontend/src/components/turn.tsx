@@ -52,6 +52,7 @@ export function Turn({ turn, ref }: { turn: TurnState; ref?: Ref<HTMLElement> })
             {turn.status === "error" && <ErrorNotice message={turn.error} />}
             {answer && (
               <>
+                <SourceBadge source={answer.source} />
                 {answer.search_query && (
                   <p className="mb-3 font-mono text-xs text-slate">
                     Searched for: {answer.search_query}
@@ -146,7 +147,23 @@ const ANSWER_COMPONENTS: Components = {
 };
 
 function GroundingNote({ answer }: { answer: Answer }) {
+  if (answer.source === "web" && answer.grounded) {
+    return (
+      <p className="mt-5 max-w-[68ch] border-l-2 border-cobalt pl-3 text-sm text-slate">
+        Your documents didn&apos;t answer this, so it comes from web results. Web pages can be
+        outdated or wrong: check the linked sources.
+      </p>
+    );
+  }
   if (answer.grounded) return null;
+  if (answer.source === "model") {
+    return (
+      <p className="mt-5 max-w-[68ch] border-l-2 border-rust pl-3 text-sm text-rust">
+        Your documents didn&apos;t answer this, so it comes from the model&apos;s general knowledge,
+        with no sources to check. Treat it as unverified.
+      </p>
+    );
+  }
   const check = answer.self_check;
   if (check && !check.passed) {
     return (
@@ -185,8 +202,28 @@ function Meta({ answer }: { answer: Answer }) {
   );
 }
 
+const SOURCE_LABELS: Record<Answer["source"], { icon: string; label: string; tone: string }> = {
+  documents: { icon: "📄", label: "From your documents", tone: "text-ink" },
+  web: { icon: "🌐", label: "From the web", tone: "text-cobalt" },
+  model: { icon: "🧠", label: "From model knowledge · no sources", tone: "text-rust" },
+  none: { icon: "∅", label: "No answer found", tone: "text-slate" },
+};
+
+function SourceBadge({ source }: { source: Answer["source"] }) {
+  const s = SOURCE_LABELS[source];
+  return (
+    <p className={`mb-3 inline-flex items-center gap-1.5 font-mono text-xs ${s.tone}`}>
+      <span aria-hidden>{s.icon}</span>
+      {s.label}
+    </p>
+  );
+}
+
 const STEP_LABELS: Record<TraceStep["step"], string> = {
   condense: "Rewrite follow-up",
+  route: "Choose another source",
+  web_search: "Search the web",
+  answer_direct: "Answer from model knowledge",
   retrieve: "Search",
   grade: "Grade passages",
   reformulate: "Try another query",

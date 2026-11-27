@@ -34,7 +34,7 @@ import httpx
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from agentic_rag import db, prompts
-from agentic_rag.answering import Answer, QuestionAnswerer, strip_citations
+from agentic_rag.answering import Answer, Knowledge, QuestionAnswerer, strip_citations
 from agentic_rag.config import REPO_ROOT, Settings, get_settings
 from agentic_rag.embeddings import OllamaEmbedder
 from agentic_rag.evals.grading import UNANSWERABLE, load_unanswerable
@@ -187,6 +187,7 @@ async def run_mode(
     concurrency: int,
 ) -> ModeResult:
     result = ModeResult(mode)
+    knowledge: Knowledge = "hybrid" if mode == "hybrid" else "documents"
     gate = asyncio.Semaphore(concurrency)
 
     async def judged(
@@ -200,13 +201,13 @@ async def run_mode(
     pending: list[tuple[dict[str, Any], Awaitable[Any]]] = []
     for q in golden:
         started = time.perf_counter()
-        answer = await service.answer(q.question)
+        answer = await service.answer(q.question, knowledge=knowledge)
         row = _row(q.id, q.question, True, answer, time.perf_counter() - started)
         pending.append((row, judged(q, answer)))
         print(f"  {mode:<8} {q.id:<24} {'declined' if answer.refused else 'answered'}", flush=True)
     for qid, question in unanswerable:
         started = time.perf_counter()
-        answer = await service.answer(question)
+        answer = await service.answer(question, knowledge=knowledge)
         result.rows.append(_row(qid, question, False, answer, time.perf_counter() - started))
         print(f"  {mode:<8} {qid:<24} {'declined' if answer.refused else 'answered'}", flush=True)
 
@@ -230,6 +231,7 @@ def _row(
         "refused": answer.refused,
         "grounded": answer.grounded,
         "self_check_passed": None if answer.self_check is None else answer.self_check.passed,
+        "source": answer.source,
         "cited": [f"{c.source} ({c.location})" for c in answer.citations],
         "trace": [s.step for s in answer.trace],
     }
@@ -245,6 +247,13 @@ def summarize_mode(result: ModeResult) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "answered": _ratio(sum(not r["refused"] for r in answerable), len(answerable)),
         "declined_unanswerable": _ratio(sum(r["refused"] for r in unanswerable), len(unanswerable)),
+        # Hybrid mode only: where answers came from (documents stay the source of truth).
+        "answerable_from_documents": _ratio(
+            sum(r.get("source") == "documents" for r in answerable), len(answerable)
+        ),
+        "unanswerable_from_web_or_model": _ratio(
+            sum(r.get("source") in ("web", "model") for r in unanswerable), len(unanswerable)
+        ),
         "self_check_flagged": _ratio(
             sum(r["self_check_passed"] is False for r in answerable), len(answerable)
         ),
@@ -317,6 +326,16 @@ def render_markdown(report: dict[str, Any], baseline: dict[str, Any] | None) -> 
         ("answered (answerable)", lambda s: s["answered"]["value"], "pct"),
         ("declined (unanswerable)", lambda s: s["declined_unanswerable"]["value"], "pct"),
         ("self-check flagged", lambda s: s["self_check_flagged"]["value"], "pct"),
+        (
+            "answerable from documents",
+            lambda s: s.get("answerable_from_documents", {}).get("value"),
+            "pct",
+        ),
+        (
+            "unanswerable from web/model",
+            lambda s: s.get("unanswerable_from_web_or_model", {}).get("value"),
+            "pct",
+        ),
         *[(m, (lambda s, m=m: s[m]["mean"]), "score") for m in JUDGED_METRICS],
         ("latency p50 (s)", lambda s: s["latency_p50_s"], "num"),
         ("latency p90 (s)", lambda s: s["latency_p90_s"], "num"),
@@ -384,9 +403,10 @@ async def main(
 
             results = []
             for mode in modes:
-                mode_settings = settings.model_copy(update={"answer_mode": mode})
+                answer_mode = "simple" if mode == "simple" else "agentic"
+                mode_settings = settings.model_copy(update={"answer_mode": answer_mode})
                 service = await build_answer_service(
-                    mode_settings, sessions, embedder, llm, reranker
+                    mode_settings, sessions, embedder, llm, http, reranker
                 )
                 results.append(
                     await run_mode(
@@ -430,7 +450,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--mode", action="append", choices=["simple", "agentic"])
+    parser.add_argument("--mode", action="append", choices=["simple", "agentic", "hybrid"])
     parser.add_argument(
         "--limit", type=int, help="only the first N questions of each set (smoke run)"
     )

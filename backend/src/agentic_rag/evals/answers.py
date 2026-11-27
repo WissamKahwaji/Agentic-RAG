@@ -48,7 +48,7 @@ async def run_mode(mode: str, reranker: CrossEncoderReranker) -> list[dict[str, 
                 http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
             )
             service = await build_answer_service(
-                settings, db.create_session_factory(engine), embedder, llm, reranker
+                settings, db.create_session_factory(engine), embedder, llm, http, reranker
             )
             questions = [(q.id, q.question, True) for q in load_golden()] + [
                 (qid, question, False) for qid, question in load_unanswerable()

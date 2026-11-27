@@ -12,8 +12,22 @@ export type Citation = {
   score: number;
 };
 
+export type Knowledge = "documents" | "hybrid";
+
+export type AnswerSource = "documents" | "web" | "model" | "none";
+
 export type TraceStep = {
-  step: "condense" | "retrieve" | "grade" | "reformulate" | "generate" | "self_check" | "refuse";
+  step:
+    | "condense"
+    | "route"
+    | "retrieve"
+    | "web_search"
+    | "grade"
+    | "reformulate"
+    | "generate"
+    | "answer_direct"
+    | "self_check"
+    | "refuse";
   ms: number;
   detail: string;
 };
@@ -30,6 +44,7 @@ export type Answer = {
   model: string;
   prompt: string;
   timings: { retrieval_ms: number; generation_ms: number };
+  source: AnswerSource;
   search_query: string | null;
   self_check: SelfCheck | null;
   trace: TraceStep[];

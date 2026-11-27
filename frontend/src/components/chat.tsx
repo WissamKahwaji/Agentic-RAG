@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Composer } from "@/components/composer";
 import { Turn, type TurnState } from "@/components/turn";
-import type { Answer, ApiError, DocumentSummary, HistoryTurn } from "@/lib/types";
+import type { Answer, ApiError, DocumentSummary, HistoryTurn, Knowledge } from "@/lib/types";
 
 // Earlier turns sent with each question so follow-ups ("what about IVFFlat?") make sense.
 const HISTORY_TURNS = 3;
@@ -20,6 +20,7 @@ type Corpus = { documents: number; passages: number } | "unavailable" | null;
 export function Chat() {
   const [turns, setTurns] = useState<TurnState[]>([]);
   const [corpus, setCorpus] = useState<Corpus>(null);
+  const [knowledge, setKnowledge] = useState<Knowledge>("documents");
   const lastTurnRef = useRef<HTMLElement>(null);
   const pending = turns.some((t) => t.status === "pending");
 
@@ -39,7 +40,7 @@ export function Chat() {
     lastTurnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [turns.length]);
 
-  const ask = useCallback(async (question: string, history: HistoryTurn[]) => {
+  const ask = useCallback(async (question: string, history: HistoryTurn[], knowledge: Knowledge) => {
     const id = crypto.randomUUID();
     setTurns((prev) => [...prev, { id, question, status: "pending" }]);
 
@@ -50,7 +51,7 @@ export function Chat() {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, history }),
+        body: JSON.stringify({ question, history, knowledge }),
       });
       const body = (await res.json()) as Answer | ApiError;
       if (!res.ok || "error" in body) {
@@ -69,9 +70,9 @@ export function Chat() {
         .filter((t) => t.status === "done" && t.answer && !t.answer.refused)
         .slice(-HISTORY_TURNS)
         .map((t) => ({ question: t.question, answer: t.answer!.answer }));
-      return ask(question, history);
+      return ask(question, history, knowledge);
     },
-    [ask, turns],
+    [ask, turns, knowledge],
   );
 
   return (
@@ -93,7 +94,12 @@ export function Chat() {
         )}
       </main>
 
-      <Composer onSubmit={askWithHistory} disabled={pending} />
+      <Composer
+        onSubmit={askWithHistory}
+        disabled={pending}
+        knowledge={knowledge}
+        onKnowledgeChange={setKnowledge}
+      />
     </div>
   );
 }

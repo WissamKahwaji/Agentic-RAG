@@ -5,6 +5,7 @@ description = "Agentic retrieval-augmented generation API with cited answers."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.1",
+    "ddgs>=9.16.1",
     "fastapi>=0.165.0",
     "httpx>=0.28.1",
     "langchain-text-splitters>=1.2.0",

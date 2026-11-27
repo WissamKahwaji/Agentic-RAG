@@ -5,7 +5,8 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from agentic_rag.answering import Answer, HistoryTurn, QuestionAnswerer
+from agentic_rag.answering import Answer, HistoryTurn, Knowledge, QuestionAnswerer
+from agentic_rag.config import Settings, get_settings
 from agentic_rag.embeddings import EmbeddingError
 from agentic_rag.llm import LLMError
 
@@ -20,6 +21,11 @@ class AskRequest(BaseModel):
         max_length=5,
         description="Earlier turns, oldest first, so follow-up questions can be understood.",
     )
+    knowledge: Knowledge | None = Field(
+        default=None,
+        description='"documents" (only your documents) or "hybrid" (documents first, then web '
+        "or model knowledge, always labelled). Defaults to the server's KNOWLEDGE_MODE.",
+    )
 
 
 def get_answer_service(request: Request) -> QuestionAnswerer:
@@ -30,9 +36,18 @@ def get_answer_service(request: Request) -> QuestionAnswerer:
 async def ask(
     body: AskRequest,
     service: Annotated[QuestionAnswerer, Depends(get_answer_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> Answer:
+    knowledge = body.knowledge or settings.knowledge_mode
+    if knowledge == "hybrid" and settings.answer_mode != "agentic":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hybrid knowledge needs the agentic answer mode (ANSWER_MODE=agentic).",
+        )
     try:
-        return await service.answer(body.question.strip(), top_k=body.top_k, history=body.history)
+        return await service.answer(
+            body.question.strip(), top_k=body.top_k, history=body.history, knowledge=knowledge
+        )
     except (LLMError, EmbeddingError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -1,5 +1,7 @@
 """The agentic RAG graph (LangGraph).
 
+Documents mode (default):
+
     START -> condense -> retrieve -> grade --(relevant passages)--> generate -> self_check -> END
                             ^          |                               ^             |
                             |          +--(none, retries left)--> reformulate        |
@@ -7,43 +9,67 @@
                             +--------------------------------------------------------+
                                        (self_check failed, attempts left: regenerate)
 
-Every loop is bounded by a settings value, so the graph always terminates. Nodes are small
-async functions that read the state and return only the keys they change.
+Hybrid mode adds Corrective RAG: when the documents cannot answer (no passage passes grading,
+or the grounded answer declines), a router picks the fallback:
+
+    ... grade --(no relevant passages)--> route --web-----> web_search -> grade -> generate | refuse
+    ... generate --(declined)-----------> route --general-> answer_direct -> END
+
+Documents always come first by construction: every question is searched in the documents, and
+the router only runs after they failed. (An earlier design routed *before* retrieval; it sent
+2 of 9 documents questions to the web, e.g. "How do I speed up HNSW index builds?".)
+
+Every loop is bounded by a settings value, so the graph always
+terminates. Nodes are small async functions that return only the state keys they change.
 """
 
 import logging
 import operator
 import time
+import uuid
 from dataclasses import dataclass, replace
 from typing import Annotated, Literal, TypedDict
+from urllib.parse import urlparse
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 
 from agentic_rag.agent.verify import unsupported_claims
-from agentic_rag.answering import SelfCheck, TraceStep, is_refusal
+from agentic_rag.answering import AnswerSource, Knowledge, SelfCheck, TraceStep, is_refusal
 from agentic_rag.llm import ChatMessage, LLMProvider, chat_structured
 from agentic_rag.prompts import (
     CONDENSE_QUESTION,
+    DIRECT_ANSWER,
     GROUNDED_ANSWER,
     NO_ANSWER,
     REFORMULATE_QUERY,
+    WEB_GROUNDED_ANSWER,
     condense_user_message,
     grounded_answer_user_message,
     reformulate_user_message,
     revision_note,
+    route_system_prompt,
 )
 from agentic_rag.reranking import Reranker
 from agentic_rag.retrieval import RetrievedChunk, Retriever
+from agentic_rag.web import WebResult, WebSearch
 
 logger = logging.getLogger(__name__)
+
+
+Route = Literal["web", "general"]
 
 
 class AgentState(TypedDict, total=False):
     question: str
     history: list[tuple[str, str]]
     top_k: int
+    knowledge: Knowledge
+
+    route: Route
+    source: AnswerSource  # where `relevant` came from: documents or web
+    web_searched: bool
 
     search_query: str
     tried_queries: list[str]
@@ -66,10 +92,48 @@ class AgentConfig:
     max_generation_attempts: int = 2
     self_check: bool = True
     temperature: float = 0.1
+    web_results: int = 5
+    corpus_description: str = "the user's uploaded documents"
 
 
 class _Query(BaseModel):
     query: str = Field(min_length=2, max_length=300)
+
+
+class _Route(BaseModel):
+    route: Route
+    reason: str = Field(default="", max_length=300)
+
+
+class RouteDecision(BaseModel):
+    route: Route
+    reason: str = ""
+
+
+async def classify_route(llm: LLMProvider, question: str, corpus_description: str) -> RouteDecision:
+    """The router's decision for one question (shared by the graph and the routing eval)."""
+    result = await chat_structured(
+        llm,
+        [
+            ChatMessage("system", route_system_prompt(corpus_description)),
+            ChatMessage("user", question),
+        ],
+        _Route,
+    )
+    return RouteDecision(route=result.route, reason=result.reason)
+
+
+def web_result_to_chunk(result: WebResult) -> RetrievedChunk:
+    """Represent a web result as a passage, so grading, prompting and citations are shared."""
+    return RetrievedChunk(
+        chunk_id=uuid.uuid5(uuid.NAMESPACE_URL, result.url),
+        source=result.url,
+        title=result.title or urlparse(result.url).netloc,
+        page=None,
+        section=urlparse(result.url).netloc,
+        content=result.content,
+        score=0.0,
+    )
 
 
 def _ms(started: float) -> int:
@@ -81,6 +145,7 @@ def build_agent_graph(
     reranker: Reranker,
     llm: LLMProvider,
     config: AgentConfig,
+    web: WebSearch | None = None,
 ) -> CompiledStateGraph[AgentState, None, AgentState, AgentState]:
     # ------------------------------------------------------------------ nodes
 
@@ -106,8 +171,55 @@ def build_agent_graph(
         detail = f"{len(candidates)} candidate passages for “{state['search_query']}”"
         return {
             "candidates": candidates,
+            "source": "documents",
             "tried_queries": [*state.get("tried_queries", []), state["search_query"]],
             "trace": [TraceStep(step="retrieve", ms=_ms(started), detail=detail)],
+        }
+
+    async def route(state: AgentState) -> AgentState:
+        """The documents could not answer: choose web search or model knowledge (hybrid only)."""
+        started = time.perf_counter()
+        result = await classify_route(llm, state["search_query"], config.corpus_description)
+        detail = f"{result.route}: {result.reason}" if result.reason else result.route
+        return {
+            "route": result.route,
+            "trace": [TraceStep(step="route", ms=_ms(started), detail=detail)],
+        }
+
+    async def web_search(state: AgentState) -> AgentState:
+        started = time.perf_counter()
+        results = await web.search(state["search_query"], config.web_results) if web else []
+        detail = f"{len(results)} web results for “{state['search_query']}”"
+        return {
+            "candidates": [web_result_to_chunk(r) for r in results],
+            "source": "web",
+            "web_searched": True,
+            # A fresh draft: the documents-path answer (if any) must not leak into this one.
+            "generations": 0,
+            "self_check": None,
+            "trace": [TraceStep(step="web_search", ms=_ms(started), detail=detail)],
+        }
+
+    async def answer_direct(state: AgentState) -> AgentState:
+        """General-knowledge answer with no sources. Labelled as such; not self-checked."""
+        started = time.perf_counter()
+        result = await llm.chat(
+            [
+                ChatMessage("system", DIRECT_ANSWER.system),
+                ChatMessage("user", state["question"]),
+            ],
+            temperature=config.temperature,
+        )
+        return {
+            "answer": result.text.strip(),
+            "relevant": [],
+            "source": "model",
+            "self_check": None,
+            "trace": [
+                TraceStep(
+                    step="answer_direct", ms=_ms(started), detail="Answered from model knowledge"
+                )
+            ],
         }
 
     async def grade(state: AgentState) -> AgentState:
@@ -158,8 +270,9 @@ def build_agent_graph(
 
     async def generate(state: AgentState) -> AgentState:
         started = time.perf_counter()
+        prompt = WEB_GROUNDED_ANSWER if state.get("source") == "web" else GROUNDED_ANSWER
         messages = [
-            ChatMessage("system", GROUNDED_ANSWER.system),
+            ChatMessage("system", prompt.system),
             ChatMessage("user", grounded_answer_user_message(state["question"], state["relevant"])),
         ]
         check = state.get("self_check")
@@ -196,14 +309,33 @@ def build_agent_graph(
 
     # ----------------------------------------------------------------- routing
 
-    def after_grade(state: AgentState) -> Literal["generate", "reformulate", "refuse"]:
+    def can_fall_back(state: AgentState) -> bool:
+        """Hybrid mode, the documents failed, and no fallback has been tried yet."""
+        return (
+            state.get("knowledge") == "hybrid"
+            and web is not None
+            and state.get("source") == "documents"
+            and "route" not in state
+        )
+
+    def after_route(state: AgentState) -> Literal["web_search", "answer_direct"]:
+        return "web_search" if state["route"] == "web" else "answer_direct"
+
+    def after_grade(state: AgentState) -> Literal["generate", "reformulate", "route", "refuse"]:
         if state["relevant"]:
             return "generate"
-        if len(state["tried_queries"]) < config.max_retrieval_attempts:
+        if can_fall_back(state):
+            return "route"  # Corrective RAG: better sources beat another document query
+        if state.get("source") == "documents" and (
+            len(state["tried_queries"]) < config.max_retrieval_attempts
+        ):
             return "reformulate"
         return "refuse"
 
-    def after_generate(state: AgentState) -> Literal["self_check", "__end__"]:
+    def after_generate(state: AgentState) -> Literal["self_check", "route", "__end__"]:
+        if is_refusal(state["answer"]) and can_fall_back(state):
+            # Passages were on topic but did not answer (e.g. "does pgvector support DiskANN?").
+            return "route"
         return "self_check" if config.self_check else "__end__"
 
     def after_check(state: AgentState) -> Literal["generate", "__end__"]:
@@ -217,6 +349,9 @@ def build_agent_graph(
 
     graph = StateGraph(AgentState)
     graph.add_node("condense", condense)
+    graph.add_node("route", route)
+    graph.add_node("web_search", web_search)
+    graph.add_node("answer_direct", answer_direct)
     graph.add_node("retrieve", retrieve)
     graph.add_node("grade", grade)
     graph.add_node("reformulate", reformulate)
@@ -226,6 +361,9 @@ def build_agent_graph(
 
     graph.add_edge(START, "condense")
     graph.add_edge("condense", "retrieve")
+    graph.add_conditional_edges("route", after_route)
+    graph.add_edge("web_search", "grade")
+    graph.add_edge("answer_direct", END)
     graph.add_edge("retrieve", "grade")
     graph.add_conditional_edges("grade", after_grade)
     graph.add_edge("reformulate", "retrieve")

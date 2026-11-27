@@ -2,14 +2,29 @@
 
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 
+import type { Knowledge } from "@/lib/types";
+
 const MIN_LENGTH = 3;
+
+const KNOWLEDGE_OPTIONS: { value: Knowledge; label: string; hint: string }[] = [
+  { value: "documents", label: "Documents only", hint: "Answers only from your documents" },
+  {
+    value: "hybrid",
+    label: "Documents + web",
+    hint: "Documents first; if they can't answer, the web or the model's own knowledge (labelled)",
+  },
+];
 
 export function Composer({
   onSubmit,
   disabled,
+  knowledge,
+  onKnowledgeChange,
 }: {
   onSubmit: (question: string) => void;
   disabled: boolean;
+  knowledge: Knowledge;
+  onKnowledgeChange: (knowledge: Knowledge) => void;
 }) {
   const [value, setValue] = useState("");
   const question = value.trim();
@@ -55,9 +70,32 @@ export function Composer({
           {disabled ? "Answering…" : "Ask"}
         </button>
       </div>
-      <p className="mt-2 hidden font-mono text-[11px] text-slate sm:block">
-        Enter to ask · Shift + Enter for a new line
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div
+          role="radiogroup"
+          aria-label="Knowledge sources"
+          className="inline-flex rounded-md border border-rule bg-paper p-0.5"
+        >
+          {KNOWLEDGE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={knowledge === o.value}
+              title={o.hint}
+              onClick={() => onKnowledgeChange(o.value)}
+              className={`rounded px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                knowledge === o.value ? "bg-ink text-paper" : "text-slate hover:text-ink"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <p className="hidden font-mono text-[11px] text-slate sm:block">
+          Enter to ask · Shift + Enter for a new line
+        </p>
+      </div>
     </form>
   );
 }

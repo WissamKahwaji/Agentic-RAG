@@ -44,10 +44,23 @@ class TraceStep(BaseModel):
     """One step the pipeline took, for showing how an answer was produced."""
 
     step: Literal[
-        "condense", "retrieve", "grade", "reformulate", "generate", "self_check", "refuse"
+        "condense",
+        "route",
+        "retrieve",
+        "web_search",
+        "grade",
+        "reformulate",
+        "generate",
+        "answer_direct",
+        "self_check",
+        "refuse",
     ]
     ms: int
     detail: str
+
+
+Knowledge = Literal["documents", "hybrid"]
+AnswerSource = Literal["documents", "web", "model", "none"]
 
 
 class SelfCheck(BaseModel):
@@ -68,6 +81,10 @@ class Answer(BaseModel):
     model: str
     prompt: str = Field(description="Prompt name and version, e.g. grounded_answer@v1.")
     timings: Timings
+    source: AnswerSource = Field(
+        default="documents",
+        description="Where the answer came from: documents, web, model knowledge, or none.",
+    )
     search_query: str | None = Field(
         default=None, description="The query actually searched, if it was rewritten."
     )
@@ -82,7 +99,11 @@ class Answer(BaseModel):
 
 class QuestionAnswerer(Protocol):
     async def answer(
-        self, question: str, top_k: int | None = None, history: Sequence[HistoryTurn] = ()
+        self,
+        question: str,
+        top_k: int | None = None,
+        history: Sequence[HistoryTurn] = (),
+        knowledge: Knowledge = "documents",
     ) -> Answer: ...
 
 
@@ -100,9 +121,13 @@ class AnswerService:
         self._temperature = temperature
 
     async def answer(
-        self, question: str, top_k: int | None = None, history: Sequence[HistoryTurn] = ()
+        self,
+        question: str,
+        top_k: int | None = None,
+        history: Sequence[HistoryTurn] = (),
+        knowledge: Knowledge = "documents",
     ) -> Answer:
-        """Single pass: retrieve, then generate. `history` is ignored (no query rewriting)."""
+        """Single pass: retrieve, then generate. Documents only; `history` is ignored."""
         started = time.perf_counter()
         chunks = await self._retriever.search(question, top_k or self._top_k)
         retrieved = time.perf_counter()
@@ -126,6 +151,7 @@ class AnswerService:
             grounded=bool(citations) and not refused,
             refused=refused,
             citations=citations,
+            source="none" if refused else "documents",
             model=self._llm.model,
             prompt=f"{GROUNDED_ANSWER.name}@v{GROUNDED_ANSWER.version}",
             timings=Timings(

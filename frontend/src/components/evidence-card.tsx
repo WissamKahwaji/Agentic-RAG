@@ -59,12 +59,24 @@ export function EvidenceCard({ id, citation }: { id: string; citation: Citation 
       )}
 
       <div className="mt-3 flex items-center gap-3 border-t border-rule pt-3">
-        <span
-          className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate"
-          title={citation.source}
-        >
-          {citation.source}
-        </span>
+        {citation.source.startsWith("http") ? (
+          <a
+            href={citation.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 flex-1 truncate font-mono text-[11px] text-cobalt hover:underline"
+            title={citation.source}
+          >
+            {citation.source.replace(/^https?:\/\//, "")}
+          </a>
+        ) : (
+          <span
+            className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate"
+            title={citation.source}
+          >
+            {citation.source}
+          </span>
+        )}
         <Similarity score={citation.score} />
       </div>
     </div>

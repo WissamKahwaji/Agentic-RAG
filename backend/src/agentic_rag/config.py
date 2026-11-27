@@ -57,6 +57,19 @@ class Settings(BaseSettings):
     max_generation_attempts: int = Field(default=2, ge=1, le=5)
     self_check: bool = True
 
+    # Default knowledge for a question: "documents" only, or "hybrid" (router + web fallback +
+    # model knowledge). Requests can override it. Hybrid requires answer_mode="agentic".
+    knowledge_mode: Literal["documents", "hybrid"] = "documents"
+    # One sentence the router uses to judge whether a question is in scope of the documents.
+    corpus_description: str = (
+        "the pgvector Postgres extension, the FastAPI web framework (tutorial and deployment "
+        "docs), and the 2020 paper on Retrieval-Augmented Generation (RAG)"
+    )
+    # Keyless metasearch backends tried in order; Tavily is used instead when a key is set.
+    web_search_backends: str = "auto,yahoo,brave,duckduckgo"
+    web_results: int = Field(default=5, ge=1, le=10)
+    tavily_api_key: str | None = None
+
     http_timeout_s: float = 60.0
 
 

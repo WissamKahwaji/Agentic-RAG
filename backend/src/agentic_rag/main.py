@@ -18,6 +18,7 @@ from agentic_rag.llm import LLMProvider, OllamaProvider
 from agentic_rag.models import EMBEDDING_DIM
 from agentic_rag.reranking import CrossEncoderReranker, Reranker
 from agentic_rag.search import build_retriever
+from agentic_rag.web import MetaWebSearch, TavilyWebSearch, WebSearch
 
 
 def configure_logging(level: str) -> None:
@@ -32,6 +33,7 @@ async def build_answer_service(
     session_factory: async_sessionmaker[AsyncSession],
     embedder: Embedder,
     llm: LLMProvider,
+    http: httpx.AsyncClient,
     reranker: Reranker | None = None,
 ) -> QuestionAnswerer:
     needs_reranker = settings.answer_mode == "agentic" or "rerank" in settings.retrieval_mode
@@ -42,6 +44,11 @@ async def build_answer_service(
 
     if settings.answer_mode == "agentic":
         assert reranker is not None
+        web: WebSearch = (
+            TavilyWebSearch(http, settings.tavily_api_key)
+            if settings.tavily_api_key
+            else MetaWebSearch([b.strip() for b in settings.web_search_backends.split(",")])
+        )
         return AgentAnswerService(
             # The agent grades passages itself, so it takes the first-stage retriever only.
             retriever=build_retriever("hybrid", session_factory, embedder, settings),
@@ -55,7 +62,10 @@ async def build_answer_service(
                 max_generation_attempts=settings.max_generation_attempts,
                 self_check=settings.self_check,
                 temperature=settings.llm_temperature,
+                web_results=settings.web_results,
+                corpus_description=settings.corpus_description,
             ),
+            web=web,
         )
     return AnswerService(
         retriever=build_retriever(
@@ -92,7 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.http, settings.ollama_base_url, settings.llm_model, settings.llm_num_ctx
         )
         app.state.answer_service = await build_answer_service(
-            settings, app.state.session_factory, embedder, llm
+            settings, app.state.session_factory, embedder, llm, app.state.http
         )
         try:
             yield

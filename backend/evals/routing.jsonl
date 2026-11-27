@@ -1,0 +1,18 @@
+{"id": "rt-cors", "question": "How do I enable CORS in FastAPI?", "acceptable": ["web"]}
+{"id": "rt-background", "question": "How do I run a background task after returning a response in FastAPI?", "acceptable": ["web"]}
+{"id": "rt-diskann", "question": "Does pgvector support the DiskANN index type?", "acceptable": ["web"]}
+{"id": "rt-pgv-release", "question": "What is the latest pgvector release and what changed?", "acceptable": ["web"]}
+{"id": "rt-postgres-version", "question": "What is the newest major version of PostgreSQL?", "acceptable": ["web"]}
+{"id": "rt-milvus", "question": "How do I install Milvus with Docker?", "acceptable": ["web"]}
+{"id": "rt-pinecone", "question": "How does Pinecone pricing compare to Weaviate?", "acceptable": ["web"]}
+{"id": "rt-celery", "question": "How do I configure Celery beat for periodic tasks?", "acceptable": ["web"]}
+{"id": "rt-worldcup", "question": "Who won the 2022 FIFA World Cup?", "acceptable": ["web", "general"]}
+{"id": "rt-rag-gpt4", "question": "How does RAG compare with GPT-4 on Natural Questions?", "acceptable": ["web"]}
+{"id": "rt-processes", "question": "What is the difference between a process and a thread?", "acceptable": ["general", "web"]}
+{"id": "rt-embedding", "question": "What is a vector embedding?", "acceptable": ["general"]}
+{"id": "rt-cosine", "question": "Explain cosine similarity in simple terms.", "acceptable": ["general"]}
+{"id": "rt-rest", "question": "What does REST stand for?", "acceptable": ["general"]}
+{"id": "rt-python", "question": "Write a Python function that reverses a string.", "acceptable": ["general"]}
+{"id": "rt-math", "question": "What is 15% of 240?", "acceptable": ["general"]}
+{"id": "rt-bigo", "question": "What does O(log n) time complexity mean?", "acceptable": ["general"]}
+{"id": "rt-capital", "question": "What is the capital of France?", "acceptable": ["general", "web"]}
