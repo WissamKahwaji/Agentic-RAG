@@ -34,9 +34,13 @@ body {
   font-family: var(--font-sans);
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-cobalt);
-  outline-offset: 2px;
+/* In the base layer, so component utilities (e.g. the question box's `outline-none`) can override
+   it; unlayered CSS would beat every Tailwind utility regardless of specificity. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+  }
 }
 
 /* The signature: a highlighter stroke that sweeps across a passage when it is inspected. */

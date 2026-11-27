@@ -49,7 +49,7 @@ export function Composer({
       onSubmit={submit}
       className="sticky bottom-0 -mx-5 bg-gradient-to-t from-fog from-70% to-transparent px-5 pt-6 pb-5 sm:-mx-8 sm:px-8"
     >
-      <div className="flex items-end gap-3 rounded-xl border border-rule bg-paper p-2 pl-4 shadow-[0_1px_0_rgba(22,32,43,0.04),0_8px_24px_-12px_rgba(22,32,43,0.18)] focus-within:border-cobalt">
+      <div className="flex items-end gap-3 rounded-xl border border-rule bg-paper p-2 pl-4 shadow-[0_1px_0_rgba(22,32,43,0.04),0_8px_24px_-12px_rgba(22,32,43,0.18)] transition-colors focus-within:border-slate/40">
         <label htmlFor="question" className="sr-only">
           Question
         </label>
