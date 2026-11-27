@@ -48,6 +48,7 @@ export type Answer = {
   search_query: string | null;
   self_check: SelfCheck | null;
   trace: TraceStep[];
+  trace_url: string | null;
 };
 
 export type DocumentSummary = {

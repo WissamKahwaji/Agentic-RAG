@@ -95,6 +95,9 @@ class Answer(BaseModel):
     # Every passage given to the generator (cited or not). Needed by evaluation metrics such as
     # context precision; excluded from API responses.
     contexts: list[str] = Field(default_factory=list, exclude=True)
+    trace_url: str | None = Field(
+        default=None, description="Link to this request's trace in Langfuse, when tracing is on."
+    )
 
 
 class QuestionAnswerer(Protocol):

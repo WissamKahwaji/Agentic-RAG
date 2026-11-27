@@ -8,6 +8,7 @@ CPU-only hosting:   LLM_PROVIDER=openai_compatible,  EMBEDDING_PROVIDER=local,
 
 import httpx
 
+from agentic_rag import tracing
 from agentic_rag.config import Settings
 from agentic_rag.embeddings import Embedder, OllamaEmbedder, SentenceTransformerEmbedder
 from agentic_rag.llm import LLMProvider, OllamaProvider, OpenAICompatibleProvider
@@ -19,6 +20,11 @@ class ConfigurationError(RuntimeError):
 
 
 def build_llm(settings: Settings, http: httpx.AsyncClient) -> LLMProvider:
+    llm = _build_llm(settings, http)
+    return tracing.TracedLLM(llm) if tracing.enabled() else llm
+
+
+def _build_llm(settings: Settings, http: httpx.AsyncClient) -> LLMProvider:
     if settings.llm_provider == "openai_compatible":
         if settings.llm_api_key is None:
             raise ConfigurationError(

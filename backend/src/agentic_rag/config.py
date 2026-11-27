@@ -89,6 +89,11 @@ class Settings(BaseSettings):
 
     http_timeout_s: float = 60.0
 
+    # Tracing (optional): set both keys to send traces to Langfuse (self-hosted or cloud).
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_host: str = "http://localhost:3100"
+
 
 @lru_cache
 def get_settings() -> Settings:

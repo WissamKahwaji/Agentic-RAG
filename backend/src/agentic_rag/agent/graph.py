@@ -28,13 +28,14 @@ import operator
 import time
 import uuid
 from dataclasses import dataclass, replace
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 from urllib.parse import urlparse
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 
+from agentic_rag import tracing
 from agentic_rag.agent.verify import unsupported_claims
 from agentic_rag.answering import AnswerSource, Knowledge, SelfCheck, TraceStep, is_refusal
 from agentic_rag.llm import ChatMessage, LLMProvider, chat_structured
@@ -135,6 +136,29 @@ def web_result_to_chunk(result: WebResult) -> RetrievedChunk:
         content=result.content,
         score=0.0,
     )
+
+
+def _traced(name: str, as_type: tracing.ObservationType, node: Any) -> Any:
+    """Record a graph node as a Langfuse observation (no-op when tracing is off)."""
+
+    async def run(state: AgentState) -> AgentState:
+        with tracing.observe(
+            name, as_type=as_type, input={"query": state.get("search_query", state["question"])}
+        ) as obs:
+            update: AgentState = await node(state)
+            steps = update.get("trace") or []
+            output: dict[str, Any] = {"detail": steps[-1].detail if steps else None}
+            for key in ("candidates", "relevant"):
+                if key in update:
+                    output[key] = [
+                        f"{c.source} · {c.location} ({c.score:.2f})" for c in update[key]
+                    ]
+            if "answer" in update:
+                output["answer"] = update["answer"]
+            obs.update(output=output)
+            return update
+
+    return run
 
 
 def _ms(started: float) -> int:
@@ -364,16 +388,16 @@ def build_agent_graph(
     # ------------------------------------------------------------------- graph
 
     graph = StateGraph(AgentState)
-    graph.add_node("condense", condense)
-    graph.add_node("route", route)
-    graph.add_node("web_search", web_search)
-    graph.add_node("answer_direct", answer_direct)
-    graph.add_node("retrieve", retrieve)
-    graph.add_node("grade", grade)
-    graph.add_node("reformulate", reformulate)
-    graph.add_node("refuse", refuse)
-    graph.add_node("generate", generate)
-    graph.add_node("self_check", self_check)
+    graph.add_node("condense", _traced("condense", "chain", condense))
+    graph.add_node("route", _traced("route", "chain", route))
+    graph.add_node("web_search", _traced("web_search", "retriever", web_search))
+    graph.add_node("answer_direct", _traced("answer_direct", "chain", answer_direct))
+    graph.add_node("retrieve", _traced("retrieve", "retriever", retrieve))
+    graph.add_node("grade", _traced("grade", "evaluator", grade))
+    graph.add_node("reformulate", _traced("reformulate", "chain", reformulate))
+    graph.add_node("refuse", _traced("refuse", "span", refuse))
+    graph.add_node("generate", _traced("generate", "chain", generate))
+    graph.add_node("self_check", _traced("self_check", "evaluator", self_check))
 
     graph.add_edge(START, "condense")
     graph.add_edge("condense", "retrieve")

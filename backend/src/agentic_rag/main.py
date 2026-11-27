@@ -8,7 +8,7 @@ import httpx
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agentic_rag import __version__, db
+from agentic_rag import __version__, db, tracing
 from agentic_rag.agent import AgentAnswerService, AgentConfig
 from agentic_rag.answering import AnswerService, QuestionAnswerer
 from agentic_rag.api import ask, documents, health
@@ -89,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        tracing.init_tracing(settings)
         app.state.engine = db.create_engine(str(settings.database_url))
         app.state.session_factory = db.create_session_factory(app.state.engine)
         app.state.http = httpx.AsyncClient(timeout=settings.http_timeout_s)
@@ -100,6 +101,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            tracing.flush()
             await app.state.http.aclose()
             await app.state.engine.dispose()
 

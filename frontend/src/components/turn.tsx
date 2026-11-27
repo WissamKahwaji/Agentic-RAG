@@ -198,6 +198,19 @@ function Meta({ answer }: { answer: Answer }) {
     <p className="mt-6 font-mono text-[11px] text-slate">
       {answer.model} · {answer.prompt} · retrieved in {answer.timings.retrieval_ms} ms · answered
       in {seconds} s
+      {answer.trace_url && (
+        <>
+          {" · "}
+          <a
+            href={answer.trace_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cobalt hover:underline"
+          >
+            Open trace
+          </a>
+        </>
+      )}
     </p>
   );
 }

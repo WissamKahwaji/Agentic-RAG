@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from agentic_rag import tracing
 from agentic_rag.agent.graph import AgentConfig, AgentState, build_agent_graph
 from agentic_rag.answering import Answer, HistoryTurn, Knowledge, Timings, finalize_answer
 from agentic_rag.llm import LLMProvider
@@ -35,6 +36,33 @@ class AgentAnswerService:
         top_k: int | None = None,
         history: Sequence[HistoryTurn] = (),
         knowledge: Knowledge = "documents",
+    ) -> Answer:
+        with tracing.observe(
+            "answer",
+            as_type="agent",
+            input={"question": question, "knowledge": knowledge, "history_turns": len(history)},
+        ) as root:
+            answer = await self._answer(question, top_k, history, knowledge)
+            root.update(
+                output={
+                    "answer": answer.answer,
+                    "source": answer.source,
+                    "citations": [f"{c.source} · {c.location}" for c in answer.citations],
+                }
+            )
+            tracing.score_trace("grounded", answer.grounded)
+            tracing.score_trace("refused", answer.refused)
+            if answer.self_check is not None:
+                tracing.score_trace("self_check_passed", answer.self_check.passed)
+            answer.trace_url = tracing.current_trace_url()
+            return answer
+
+    async def _answer(
+        self,
+        question: str,
+        top_k: int | None,
+        history: Sequence[HistoryTurn],
+        knowledge: Knowledge,
     ) -> Answer:
         initial: AgentState = {
             "question": question,
