@@ -1,0 +1,1402 @@
+{
+  "run_id": "20261127-084623",
+  "config": {
+    "git_sha": "2ddba34",
+    "git_dirty": false,
+    "dataset_sha": "9d4921de1bb1",
+    "llm": "qwen2.5:7b",
+    "embedding_model": "bge-m3",
+    "reranker": "BAAI/bge-reranker-v2-m3",
+    "retrieval_mode": "hybrid+rerank",
+    "relevance_threshold": 0.05,
+    "top_k": 5,
+    "judge": "qwen2.5:7b",
+    "judge_is_generator": true,
+    "prompts": {
+      "grounded_answer": 2,
+      "condense_question": 1,
+      "reformulate_query": 1,
+      "self_check": 1,
+      "verify_claim": 1,
+      "route_question": 2,
+      "web_grounded_answer": 1,
+      "direct_answer": 1
+    }
+  },
+  "limit": null,
+  "retrieval": {
+    "hit_at_1": 0.8235294117647058,
+    "hit_at_5": 1,
+    "mrr_at_10": 0.9068627450980392,
+    "p50_ms": 363.0338129996744,
+    "missed_at_5": []
+  },
+  "modes": {
+    "hybrid": {
+      "answered": {
+        "value": 0.971,
+        "n": 33,
+        "of": 34
+      },
+      "declined_unanswerable": {
+        "value": 0.083,
+        "n": 1,
+        "of": 12
+      },
+      "answerable_from_documents": {
+        "value": 0.941,
+        "n": 32,
+        "of": 34
+      },
+      "unanswerable_from_web_or_model": {
+        "value": 0.917,
+        "n": 11,
+        "of": 12
+      },
+      "self_check_flagged": {
+        "value": 0.059,
+        "n": 2,
+        "of": 34
+      },
+      "latency_p50_s": 5.12,
+      "latency_p90_s": 15.77,
+      "judge_failures": 0,
+      "faithfulness": {
+        "mean": 0.925,
+        "n": 33
+      },
+      "answer_relevancy": {
+        "mean": 0.769,
+        "n": 34
+      },
+      "context_precision": {
+        "mean": 0.844,
+        "n": 34
+      },
+      "context_recall": {
+        "mean": 0.821,
+        "n": 34
+      },
+      "factual_correctness": {
+        "mean": 0.55,
+        "n": 34
+      }
+    }
+  },
+  "rows": {
+    "hybrid": [
+      {
+        "id": "un-pgv-gpu",
+        "question": "Does pgvector support building indexes on the GPU?",
+        "answerable": false,
+        "seconds": 8.46,
+        "answer": "Based on the provided sources, pgvector does not currently support building indexes on the GPU. [2]",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://github.com/pgvector/pgvector/issues/291 (github.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-pgv-diskann",
+        "question": "Does pgvector support the DiskANN index type?",
+        "answerable": false,
+        "seconds": 17.57,
+        "answer": "Yes, pgvector supports DiskANN index type. This can be inferred from the following sources:\n\n- Source [1] mentions a plan to add support for DiskANN in pgvector.\n- Source [2] states that two DiskANN implementations are available from different vendors.\n- Source [3] confirms the existence of DiskANN support in pgvector, noting it as a solution for scaling issues with default index types.",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://github.com/pgvector/pgvector/issues/650 (github.com)",
+          "https://www.dbi-services.com/blog/pgvector-a-guide-for-dba-part-2-indexes-update-march-2026/ (www.dbi-services.com)",
+          "https://hysenlabs.com/projects/timescale-pgvectorscale (hysenlabs.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-pgv-elasticsearch",
+        "question": "How do I keep pgvector embeddings in sync with Elasticsearch?",
+        "answerable": false,
+        "seconds": 21.82,
+        "answer": "To keep pgvector embeddings in sync with Elasticsearch, you can use PGSync Semantic [1]. PGSync Semantic allows your users to search by meaning, with hybrid keyword ranking, and re-embeds a document only when its meaning changes [1]. However, the sources do not directly mention using PGSync Semantic for syncing embeddings with Elasticsearch. Instead, you can use event-driven pipelines in PostgreSQL, such as triggers, logical replication, Flink CDC, and pgvector versioning, to keep RAG embeddings fresh [5].",
+        "refused": false,
+        "grounded": false,
+        "self_check_passed": false,
+        "source": "web",
+        "cited": [
+          "https://pgsync.com/ (pgsync.com)",
+          "https://www.dbi-services.com/blog/rag-series-embedding-versioning-with-pgvector-why-event-driven-architecture-is-a-precondition-to-ai-data-workflows/ (www.dbi-services.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-pgv-mongodb",
+        "question": "How do I store vectors in MongoDB Atlas?",
+        "answerable": false,
+        "seconds": 7.54,
+        "answer": "To store vectors in MongoDB Atlas, you can use the Atlas Vector Search product, which allows you to store vector embeddings representing your data's semantic meaning alongside your operational data in the same database [1][4].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://www.geeksforgeeks.org/mongodb/vector-indexing-in-mongodb/ (www.geeksforgeeks.org)",
+          "https://www.mongodb.com/docs/vector-search/ (www.mongodb.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-fa-cors",
+        "question": "How do I enable CORS for a FastAPI app?",
+        "answerable": false,
+        "seconds": 11.23,
+        "answer": "To enable CORS for a FastAPI app, you can use the `CORSMiddleware` provided by FastAPI [2][3]. Here\u2019s how you can do it:\n\n1. Import the necessary modules:\n```python\nfrom fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n```\n[1][3]\n\n2. Create your FastAPI app instance and add the middleware:\n```python\napp = FastAPI()\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=[\"*\"],  # Replace with specific origins if needed\n    allow_credentials=True,\n    allow_methods=[\"*\"],  # Replace with specific methods if needed\n    allow_headers=[\"*\"],  # Replace with specific headers if needed\n)\n```\n[1][2][3]\n\nThis setup allows all origins, credentials, methods, and headers. You can customize these parameters according to your needs.",
+        "refused": false,
+        "grounded": false,
+        "self_check_passed": false,
+        "source": "web",
+        "cited": [
+          "https://fastapi.tiangolo.com/tutorial/cors/ (fastapi.tiangolo.com)",
+          "https://www.geeksforgeeks.org/python/configuring-cors-in-fastapi/ (www.geeksforgeeks.org)",
+          "https://pytutorial.com/add-cors-middleware-to-fastapi-apps/ (pytutorial.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-fa-background",
+        "question": "How do I run a background task after returning a response in FastAPI?",
+        "answerable": false,
+        "seconds": 8.91,
+        "answer": "To run a background task after returning a response in FastAPI, you can declare a parameter in your path operation function or dependency function with the type `BackgroundTasks`. This parameter will then be used to schedule the execution of background tasks after the response is sent [1][2][3].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://fastapi.tiangolo.com/reference/background/ (fastapi.tiangolo.com)",
+          "https://fastapi.tiangolo.com/tutorial/background-tasks/ (fastapi.tiangolo.com)",
+          "https://stackoverflow.com/questions/76279889/how-to-use-background-tasks-inside-a-function-that-is-called-by-a-fastapi-endpoi (stackoverflow.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "reformulate",
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-fa-websocket",
+        "question": "How do I add a WebSocket endpoint in FastAPI?",
+        "answerable": false,
+        "seconds": 15.52,
+        "answer": "To add a WebSocket endpoint in FastAPI, you can define a WebSocket endpoint in your application. The \"/ws\" WebSocket endpoint is defined in the application, and the handler accepts a WebSocket parameter to manage the connection [1][3].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://www.geeksforgeeks.org/python/how-to-use-websocket-with-fastapi/ (www.geeksforgeeks.org)",
+          "https://fastapi.tiangolo.com/reference/websockets/ (fastapi.tiangolo.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-fa-ratelimit",
+        "question": "How do I rate-limit requests to a FastAPI endpoint?",
+        "answerable": false,
+        "seconds": 15.8,
+        "answer": "To rate-limit requests to a FastAPI endpoint, you can use SlowAPI, which provides per-route limits, Redis-backed scaling, accurate 429 responses, and real client IPs [4][3]. Here is a code sample using SlowAPI:\n\n```python\nfrom fastapi import FastAPI\nfrom slowapi import Limiter, _rate_limit_exceeded_handler\nfrom slowapi.util import get_remote_address\nfrom slowapi.middleware import SlowAPIMiddleware\n\nlimiter = Limiter(key_func=get_remote_address)\n\napp = FastAPI()\napp.state.limiter = limiter\napp.add_middleware(SlowAPIMiddleware)\n\n@app.get(\"/items/\")\ndef read_items():\n    return {\"items\": [\"Item 1\", \"Item 2\"]}\n```\n\nThis example demonstrates how to set up SlowAPI middleware in a FastAPI application [5][3]. The specific rate limit configuration is not provided in the sources, but you can add rate limits like this:\n\n```python\nfrom fastapi import FastAPI\nfrom slowapi import Limiter, _rate_limit_exceeded_handler\nfrom slowapi.util import get_remote_address\nfrom slowapi.middleware import SlowAPIMiddleware\n\nlimiter = Limiter(key_func=get_remote_address)\n\napp = FastAPI()\napp.state.limiter = limiter\napp.add_middleware(SlowAPIMiddleware)\n\n@app.get(\"/items/\")\n@limiter.limit(\"2/minute\")  # Limit to 2 requests per minute\ndef read_items():\n    return {\"items\": [\"Item 1\", \"Item 2\"]}\n```\n\nThis code sets a rate limit of 2 requests per minute for the `/items/` endpoint [5][4][3].",
+        "refused": false,
+        "grounded": false,
+        "self_check_passed": false,
+        "source": "web",
+        "cited": [
+          "https://tutorialibre.com/courses/programming-frameworks/fastapi/authentication-authorization-security/security-best-practices/rate-limiting/ (tutorialibre.com)",
+          "https://www.logiclooptech.dev/fastapi-rate-limiting-practical-guide-for-production/ (www.logiclooptech.dev)",
+          "https://stackoverflow.com/questions/65491184/ratelimit-in-fastapi (stackoverflow.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-fa-celery",
+        "question": "How do I schedule periodic jobs with Celery in a FastAPI project?",
+        "answerable": false,
+        "seconds": 11.17,
+        "answer": "To schedule periodic jobs with Celery in a FastAPI project, you can use Celery Beat, which is a separate process that schedules periodic tasks [1][5]. Here\u2019s how you can set it up:\n\n- **Configure Celery with FastAPI**: First, integrate Celery with your FastAPI application [2][3][4].\n- **Define Periodic Tasks**: Use Celery Beat to define and schedule periodic tasks [1][5].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://medium.com/@yogesh.bhattarai073/how-i-implemented-celery-beat-scheduling-in-fastapi-22b7ee832ea3 (medium.com)",
+          "https://medium.com/@Aman-tech/how-to-run-background-tasks-with-celery-and-fastapi-7923528cfb73 (medium.com)",
+          "https://www.compilenrun.com/docs/framework/fastapi/fastapi-background-tasks/fastapi-celery-integration/ (www.compilenrun.com)",
+          "https://dev.to/shahnawaz-pabon/trigger-a-task-with-fastapi-celery-docker-and-docker-compose-a-step-by-step-guide-35do (dev.to)",
+          "https://testdriven.io/blog/fastapi-and-celery/ (testdriven.io)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "reformulate",
+          "retrieve",
+          "grade",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-rag-learning-rate",
+        "question": "What learning rate was used to fine-tune RAG?",
+        "answerable": false,
+        "seconds": 15.75,
+        "answer": "I don't know based on the provided documents.",
+        "refused": true,
+        "grounded": false,
+        "self_check_passed": null,
+        "source": "none",
+        "cited": [],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate"
+        ]
+      },
+      {
+        "id": "un-rag-gpt4",
+        "question": "How does RAG compare with GPT-4 on Natural Questions?",
+        "answerable": false,
+        "seconds": 15.03,
+        "answer": "RAG models, such as those paired with GPT-4, show improved performance in answering both binary and long-answer questions compared to standard GPT-4 models [1][2]. For instance, in a study within an AI-focused MOOC, a RAG-augmented GPT-4 model achieved an 85% success rate, outperforming a standard GPT-4 model with an 81% success rate [2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://arxiv.org/abs/2511.03261 (arxiv.org)",
+          "https://link.springer.com/chapter/10.1007/978-3-031-65996-6_7 (link.springer.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ]
+      },
+      {
+        "id": "un-offtopic",
+        "question": "What is the capital of France?",
+        "answerable": false,
+        "seconds": 1.94,
+        "answer": "The capital of France is Paris.",
+        "refused": false,
+        "grounded": false,
+        "self_check_passed": null,
+        "source": "model",
+        "cited": [],
+        "trace": [
+          "retrieve",
+          "grade",
+          "reformulate",
+          "retrieve",
+          "grade",
+          "route",
+          "answer_direct"
+        ]
+      },
+      {
+        "id": "pgv-ef-search-default",
+        "question": "What is the default value of hnsw.ef_search?",
+        "answerable": true,
+        "seconds": 2.11,
+        "answer": "The default value of `hnsw.ef_search` is 40 [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > HNSW > Query Options)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.996912098760348,
+          "context_precision": 0.99999999995,
+          "context_recall": 1.0,
+          "factual_correctness": 0.5
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-max-dimensions",
+        "question": "How many dimensions can a vector column have and still be indexed with HNSW?",
+        "answerable": true,
+        "seconds": 4.15,
+        "answer": "A vector column can have up to 2,000 dimensions using the `vector` type, up to 4,000 dimensions using the `halfvec` type, and up to 64,000 dimensions using the `bit` type [1][2][3].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > HNSW)",
+          "pgvector/README.md (pgvector > HNSW)",
+          "pgvector/README.md (pgvector > HNSW > Index Options)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.7015470665254688,
+          "context_precision": 0.99999999995,
+          "context_recall": 0.75,
+          "factual_correctness": 0.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-cosine-operator",
+        "question": "Which operator returns cosine distance?",
+        "answerable": true,
+        "seconds": 3.74,
+        "answer": "The operator that returns cosine distance is `<=>` [4].",
+        "refused": false,
+        "grounded": false,
+        "self_check_passed": false,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Reference > Sparsevec Functions)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9999999999999999,
+          "context_precision": 0.94999999997625,
+          "context_recall": 1.0,
+          "factual_correctness": 1.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-build-speed",
+        "question": "My HNSW index takes forever to build. How can I make it faster?",
+        "answerable": true,
+        "seconds": 5.77,
+        "answer": "To make the HNSW index build faster, you can:\n\n- Increase `maintenance_work_mem` to allow the graph to fit into memory, which speeds up the build process [1].\n- Increase the number of parallel workers by setting `max_parallel_maintenance_workers` [1].\n- Use binary quantization to reduce the index size and speed up the build time at scale [1].\n- Use the default index options unless you see low recall, as custom options can impact build time [1].\n- Ensure that the `maintenance_work_mem` setting is not too high to avoid exhausting server memory [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > HNSW > Index Build Time)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.8,
+          "answer_relevancy": 0.9044478871869441,
+          "context_precision": 0.8333333332916666,
+          "context_recall": 1.0,
+          "factual_correctness": 0.44
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-filter-fewer-rows",
+        "question": "Why does my query with a WHERE clause return fewer rows than the LIMIT when using an approximate index?",
+        "answerable": true,
+        "seconds": 5.39,
+        "answer": "When using approximate indexes like HNSW, filtering is applied after the index is scanned [4]. This means that the index scan may return fewer rows than the actual number of rows that match the filter condition, especially if the condition matches a high percentage of rows. To get more results, you can enable iterative index scans, which will automatically scan more of the index until enough results are found [2][4].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Filtering)",
+          "pgvector/README.md (pgvector > Iterative Index Scans)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.8,
+          "answer_relevancy": 0.6203404795835754,
+          "context_precision": 0.999999999975,
+          "context_recall": 1.0,
+          "factual_correctness": 0.75
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-relaxed-order",
+        "question": "What does SET hnsw.iterative_scan = relaxed_order do?",
+        "answerable": true,
+        "seconds": 3.7,
+        "answer": "Setting `hnsw.iterative_scan = relaxed_order` enables iterative index scans with relaxed ordering [1]. This allows results to be slightly out of order by distance, but provides better recall [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Iterative Index Scans)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.8648637651103227,
+          "context_precision": 0.9999999999,
+          "context_recall": 0.5,
+          "factual_correctness": 0.86
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-half-precision",
+        "question": "How can I store embeddings with half the storage?",
+        "answerable": true,
+        "seconds": 2.34,
+        "answer": "Use the `halfvec` type instead of `vector` for a smaller working set [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Performance > Storing)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.4924468153477001,
+          "context_precision": 0.9999999999666667,
+          "context_recall": 1.0,
+          "factual_correctness": 0.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-binary-quantize",
+        "question": "What is binary_quantize used for?",
+        "answerable": true,
+        "seconds": 3.94,
+        "answer": "binary_quantize is used for binary quantization, which can be applied to create smaller indexes and faster build times at scale [1][2]. It can be used in SQL commands to create indexes and to perform searches based on Hamming distance [2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Performance > Indexing)",
+          "pgvector/README.md (pgvector > Binary Quantization)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9013074214564168,
+          "context_precision": 0.499999999975,
+          "context_recall": 1.0,
+          "factual_correctness": 0.67
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-hybrid-search",
+        "question": "Can I combine vector similarity with keyword search in Postgres?",
+        "answerable": true,
+        "seconds": 3.94,
+        "answer": "Yes, you can combine vector similarity with keyword search in Postgres using hybrid search [2]. This can be achieved by using pgvector together with Postgres full-text search. For example:\n\n```sql\nSELECT id, content FROM items, plainto_tsquery('hello search') query\nWHERE textsearch @@ query ORDER BY ts_rank_cd(textsearch, query) DESC LIMIT 5;\n```",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Hybrid Search)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9737716062353915,
+          "context_precision": 0.99999999995,
+          "context_recall": 1.0,
+          "factual_correctness": 0.67
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-multitenancy",
+        "question": "How should I keep each customer's vectors separate in a multi-tenant app?",
+        "answerable": true,
+        "seconds": 2.64,
+        "answer": "Use list partitioning or separate tables to isolate vectors for each tenant [1]. For example:\n\n```sql\nCREATE TABLE items (customer_id int, embedding vector(3)) PARTITION BY LIST(customer_id);\n```",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Multitenancy)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.7890523245316059,
+          "context_precision": 0.9999999999,
+          "context_recall": 1.0,
+          "factual_correctness": 0.5
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-hnsw-vs-ivfflat",
+        "question": "What are the trade-offs between the two approximate index types?",
+        "answerable": true,
+        "seconds": 4.32,
+        "answer": "The trade-offs between the two approximate index types, HNSW and IVFFlat, are not directly compared in the provided sources [1][2]. However, I can infer some differences based on the information given:\n\n- **HNSW (Hierarchical Navigable Small World)**: This index type is described as supporting different parameters to control the trade-off between memory usage and query performance [1].\n\n- **IVFFlat (Inverted File Flat)**: This index type is mentioned but not detailed in the provided sources [2].\n\nTo understand the specific trade-offs, you would need to explore the parameters and configurations for each index type, which are not provided in the given sources.",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Filtering)",
+          "pgvector/README.md (pgvector > Indexing)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.3333333333333333,
+          "answer_relevancy": 0.0,
+          "context_precision": 0.0,
+          "context_recall": 0.0,
+          "factual_correctness": 0.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-homebrew",
+        "question": "How do I install the extension with Homebrew?",
+        "answerable": true,
+        "seconds": 2.43,
+        "answer": "To install the extension with Homebrew, use the following command:\n```sh\nbrew install pgvector\n```\nNote: This only adds it to the `postgresql@19` and `postgresql@18` formulas [2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > Additional Installation Methods > Homebrew)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.7906559082829644,
+          "context_precision": 0.99999999995,
+          "context_recall": 1.0,
+          "factual_correctness": 0.57
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-probes",
+        "question": "What does ivfflat.probes control?",
+        "answerable": true,
+        "seconds": 2.76,
+        "answer": "ivfflat.probes control the number of probes during the query process [2]. A higher value provides better recall at the cost of speed [2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "pgvector/README.md (pgvector > IVFFlat > Query Options)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.7935338369899796,
+          "context_precision": 0.999999999975,
+          "context_recall": 1.0,
+          "factual_correctness": 0.75
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "pgv-monitoring",
+        "question": "How can I find slow similarity queries in production?",
+        "answerable": true,
+        "seconds": 16.16,
+        "answer": "I don't know based on the provided documents. The sources focus on finding and fixing slow SQL queries and database queries in general, but do not specifically address slow similarity queries.",
+        "refused": true,
+        "grounded": false,
+        "self_check_passed": null,
+        "source": "none",
+        "cited": [],
+        "trace": [
+          "retrieve",
+          "grade",
+          "reformulate",
+          "retrieve",
+          "grade",
+          "route",
+          "web_search",
+          "grade",
+          "generate"
+        ],
+        "scores": {
+          "faithfulness": null,
+          "answer_relevancy": 0.0,
+          "context_precision": 0.8055555555287036,
+          "context_recall": 0.5,
+          "factual_correctness": 0.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-optional-query",
+        "question": "How do I make a query parameter optional?",
+        "answerable": true,
+        "seconds": 3.52,
+        "answer": "To make a query parameter optional, you can set its default value to `None` [1]. For example, in the code snippet [1], the function parameter `q` is declared as optional by setting its default to `None`.",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/query-params.md (Query Parameters > Optional parameters)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.7977963992480215,
+          "context_precision": 0.8666666666377778,
+          "context_recall": 1.0,
+          "factual_correctness": 1.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-route-order",
+        "question": "Why is /users/me matched by /users/{user_id} and how do I avoid it?",
+        "answerable": true,
+        "seconds": 5.09,
+        "answer": "To avoid the path `/users/me` being matched by `/users/{user_id}`, you need to declare the more specific path `/users/me` before the more general path `/users/{user_id}` [1]. This ensures that the server correctly interprets `/users/me` as a fixed path rather than a path with a parameter [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/path-params.md (Path Parameters > Order matters)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.8908591126807432,
+          "context_precision": 0.9999999999,
+          "context_recall": 1.0,
+          "factual_correctness": 0.8
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-enum-path",
+        "question": "How do I restrict a path parameter to a fixed set of allowed values?",
+        "answerable": true,
+        "seconds": 2.73,
+        "answer": "To restrict a path parameter to a fixed set of allowed values, you can use a standard Python `Enum` class [1]. Then, declare the path parameter with this enum type [2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/path-params.md (Path Parameters > Predefined values)",
+          "fastapi/tutorial/path-params.md (Path Parameters > Predefined values > Declare a *path parameter*)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9676534065743486,
+          "context_precision": 0.99999999995,
+          "context_recall": 0.0,
+          "factual_correctness": 0.67
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-multiple-files",
+        "question": "How should I structure a large FastAPI project across several modules?",
+        "answerable": true,
+        "seconds": 14.44,
+        "answer": "To structure a large FastAPI project across several modules, you should:\n\n- **Import and use the `FastAPI` class** in the main file, as shown in [4][5]. The main file will import the `FastAPI` app object from the module with the following code:\n\n  ```python\n  from main import app\n  ```\n\n- **Include an `APIRouter` with custom parameters** in the main file. If you have a shared `APIRouter` in another module, like `app/internal/admin.py`, you can include it in the main file with a custom `prefix`, `tags`, `responses`, and `dependencies` without modifying the original `APIRouter`. For example:\n\n  ```python\n  from fastapi import APIRouter, FastAPI\n  from app.internal.admin import api_router\n\n  app = FastAPI()\n\n  app.include_router(\n      api_router,\n      prefix=\"/admin\",\n      tags=[\"admin\"],\n      responses={404: {\"description\": \"Not found\"}},\n      dependencies=[Depends(some_dependency)],\n  )\n  ```\n\n  This is demonstrated in [3].\n\n- **Keep the main file simple**. The main file will tie everything together, but most of your logic will live in its own specific module, making the main file quite simple, as mentioned in [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/bigger-applications.md (Bigger Applications - Multiple Files > The main `FastAPI` > Import `FastAPI`)",
+          "fastapi/tutorial/first-steps.md (First Steps)",
+          "fastapi/tutorial/bigger-applications.md (Bigger Applications - Multiple Files > The main `FastAPI` > Include an `APIRouter` with a custom `prefix`, `tags`, `responses`, and `dependencies`)",
+          "fastapi/tutorial/bigger-applications.md (Bigger Applications - Multiple Files > The main `FastAPI`)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.875,
+          "answer_relevancy": 0.9924515093583116,
+          "context_precision": 0.0,
+          "context_recall": 1.0,
+          "factual_correctness": 0.33
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-apirouter-prefix",
+        "question": "How do I include an APIRouter with a prefix and tags?",
+        "answerable": true,
+        "seconds": 5.7,
+        "answer": "To include an APIRouter with a custom prefix and tags, you can use the `app.include_router()` method. Here's how you can do it:\n\n```python\napp.include_router(\n    admin_router,  # The APIRouter you want to include\n    prefix=\"/admin\",  # Custom prefix\n    tags=[\"admin\"],  # Custom tags\n    responses={418: {\"description\": \"I'm a teapot\"}},  # Custom responses\n    dependencies=[Depends(get_token_header)],  # Custom dependencies\n)\n```\n\nThis will apply the specified prefix, tags, responses, and dependencies to the included APIRouter without modifying the original router [1][2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/bigger-applications.md (Bigger Applications - Multiple Files > The main `FastAPI` > Include an `APIRouter` with a custom `prefix`, `tags`, `responses`, and `dependencies`)",
+          "fastapi/tutorial/bigger-applications.md (Bigger Applications - Multiple Files > The main `FastAPI` > Include an `APIRouter` with a custom `prefix`, `tags`, `responses`, and `dependencies`)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9587601751188342,
+          "context_precision": 0.94999999997625,
+          "context_recall": 1.0,
+          "factual_correctness": 1.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-annotated-deps",
+        "question": "How do I reuse the same Depends declaration with Annotated?",
+        "answerable": true,
+        "seconds": 3.19,
+        "answer": "To reuse the same `Depends` declaration with `Annotated`, you can store the `Annotated` type in a variable and use it multiple times. This reduces code duplication and preserves type information, allowing for better editor support like autocompletion and inline errors [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/dependencies/index.md (Dependencies > Share `Annotated` dependencies)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9193933074908968,
+          "context_precision": 0.9999999999666667,
+          "context_recall": 1.0,
+          "factual_correctness": 0.67
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-burgers",
+        "question": "Explain concurrency versus parallelism with an everyday analogy.",
+        "answerable": true,
+        "seconds": 5.14,
+        "answer": "Concurrency and parallelism can be explained using the analogy of cleaning a house and making burgers.\n\n- **Concurrency**: Imagine you and your friends are cleaning a big, dirty house. There's no waiting involved; you just clean different parts of the house. This is similar to concurrency, where tasks are executed in a way that they appear to happen simultaneously, but they don't necessarily run in parallel. [1]\n\n- **Parallelism**: Now, think of a scenario where you and your friends are making burgers. Each of you can make a burger at the same time, and you can do this simultaneously. This is parallelism, where tasks are executed concurrently and can run in parallel. [2][5]",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/async.md (Concurrency and async / await > Asynchronous Code > Is concurrency better than parallelism?)",
+          "fastapi/async.md (Concurrency and async / await > Asynchronous Code > Concurrency and Burgers)",
+          "fastapi/async.md (Concurrency and async / await > Asynchronous Code > Parallel Burgers)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.867139798179046,
+          "context_precision": 0.4499999999775,
+          "context_recall": 0.6666666666666666,
+          "factual_correctness": 0.73
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-async-dependency",
+        "question": "Should my dependency functions be async or regular functions?",
+        "answerable": true,
+        "seconds": 5.27,
+        "answer": "Your dependency functions can be either `async def` or `def`. [1] The sources do not specify that a `def` function will be run in an external threadpool. Additionally, the sources do not explicitly state that you can mix `async def` and `def` functions as dependencies. [1][3]",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/dependencies/index.md (Dependencies > To `async` or not to `async`)",
+          "fastapi/async.md (Concurrency and async / await > Very Technical Details > Other utility functions)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.3333333333333333,
+          "answer_relevancy": 0.7234768119684861,
+          "context_precision": 0.999999999975,
+          "context_recall": 1.0,
+          "factual_correctness": 0.5
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-workers-memory",
+        "question": "If I run several worker processes, does each one load its own copy of a machine learning model into RAM?",
+        "answerable": true,
+        "seconds": 2.98,
+        "answer": "Yes, each worker process will load its own copy of the machine learning model into RAM [1][2].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/deployment/concepts.md (Deployments Concepts > Replication - Processes and Memory > Memory per Process)",
+          "fastapi/deployment/concepts.md (Deployments Concepts > Replication - Processes and Memory > Server Memory)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9425660853698112,
+          "context_precision": 0.99999999998,
+          "context_recall": 1.0,
+          "factual_correctness": 0.67
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-request-body",
+        "question": "How do I receive JSON data sent by the client?",
+        "answerable": true,
+        "seconds": 9.94,
+        "answer": "To receive JSON data sent by the client, you can use Pydantic models in your FastAPI function. FastAPI will:\n\n* Read the body of the request as JSON [1].\n* Convert the corresponding types (if needed) [1].\n* Validate the data [1].\n* If the data is invalid, it will return a nice and clear error, indicating exactly where and what was the incorrect data [1].\n* Give you the received data in the parameter `item` [1].\n* As you declared it in the function to be of type `Item`, you will also have all the editor support (completion, etc) for all of the attributes and their types [1].\n* Generate JSON Schema definitions for your model, you can also use them anywhere else you like if it makes sense for your project [1].\n* Those schemas will be part of the generated OpenAPI schema, and used by the automatic documentation UIs [1].\n\nFor example, you can define a model like this:\n\n```python\nfrom pydantic import BaseModel\n\nclass Item(BaseModel):\n    name: str\n    description: str = None\n    price: float\n    tax: float = None\n```\n\nAnd use it in your API function like this:\n\n```python\nfrom fastapi import FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\n@app.post(\"/items/\")\nasync def create_item(item: Item):\n    return item\n```\n\nThis setup allows you to receive and validate JSON data sent by the client [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/body.md (Request Body > Results)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.7066233808707393,
+          "context_precision": 0.49999999995,
+          "context_recall": 1.0,
+          "factual_correctness": 0.82
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-docs-url",
+        "question": "Where are the Swagger UI and ReDoc pages served?",
+        "answerable": true,
+        "seconds": 5.01,
+        "answer": "The Swagger UI page is served at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) [1][2][3].\n\nThe ReDoc page is served at [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc) [3].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/tutorial/first-steps.md (First Steps > Interactive API docs)",
+          "fastapi/tutorial/path-params.md (Path Parameters > Documentation)",
+          "fastapi/tutorial/first-steps.md (First Steps > Alternative API docs)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "reformulate",
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 1.0,
+          "context_precision": 0.9999999999,
+          "context_recall": 1.0,
+          "factual_correctness": 1.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "fa-restart-crash",
+        "question": "What should happen when the server process crashes?",
+        "answerable": true,
+        "seconds": 2.81,
+        "answer": "When the server process crashes, an external component should handle the restart of the process, at least a couple of times [1]. This external component should be separate from the application itself, as the crashing application cannot handle its own restart [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "fastapi/deployment/concepts.md (Deployments Concepts > Restarts > Restart After Crash)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9452981201081457,
+          "context_precision": 0.9999999999,
+          "context_recall": 0.5,
+          "factual_correctness": 0.57
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-retriever",
+        "question": "Which retriever does the RAG model use to find documents?",
+        "answerable": true,
+        "seconds": 3.85,
+        "answer": "The RAG model uses a dense vector index of Wikipedia, accessed with a pre-trained neural retriever [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 2)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.6774527291860738,
+          "context_precision": 0.9999999999,
+          "context_recall": 1.0,
+          "factual_correctness": 0.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-generator",
+        "question": "What seq2seq model is used as the RAG generator, and how many parameters does it have?",
+        "answerable": true,
+        "seconds": 4.86,
+        "answer": "The seq2seq model used as the RAG generator is not explicitly stated in the provided sources. However, the closest parametric model to the RAG models in terms of parameters is T5-large, which has 770M parameters [4]. [1]",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 19)",
+          "papers/rag-lewis-2020.pdf (page 1)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.6666666666666666,
+          "answer_relevancy": 0.0,
+          "context_precision": 0.9999999999,
+          "context_recall": 0.0,
+          "factual_correctness": 0.0
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-index-size",
+        "question": "How many documents are in the Wikipedia index used by RAG?",
+        "answerable": true,
+        "seconds": 4.15,
+        "answer": "Each Wikipedia article is split into disjoint 100-word chunks, making a total of 21M documents [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 4)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.5640529321802236,
+          "context_precision": 0.99999999995,
+          "context_recall": 1.0,
+          "factual_correctness": 0.5
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-jeopardy",
+        "question": "How well does RAG generate Jeopardy questions compared to BART?",
+        "answerable": true,
+        "seconds": 9.88,
+        "answer": "RAG-Token performs better than RAG-Sequence on Jeopardy question generation [2]. Human evaluations show that RAG is more factual and specific than BART [3]. In 42.7% of cases, evaluators found RAG to be more factual than BART, compared to only 7.1% where BART was more factual [1].",
+        "refused": false,
+        "grounded": false,
+        "self_check_passed": false,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 6)",
+          "papers/rag-lewis-2020.pdf (page 6)",
+          "papers/rag-lewis-2020.pdf (page 8)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.938348091651416,
+          "context_precision": 0.99999999998,
+          "context_recall": 1.0,
+          "factual_correctness": 0.44
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-hot-swap",
+        "question": "Can the model's knowledge be updated without retraining it?",
+        "answerable": true,
+        "seconds": 4.35,
+        "answer": "Yes, the model's knowledge can be updated without retraining it. Specifically, the retrieval index can be hot-swapped to update the model without requiring any retraining [1][4].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 9)",
+          "papers/rag-lewis-2020.pdf (page 7)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.9963518737095362,
+          "context_precision": 0.99999999998,
+          "context_recall": 1.0,
+          "factual_correctness": 0.57
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-broader-impact",
+        "question": "What risks or societal downsides of this kind of model do the authors discuss?",
+        "answerable": true,
+        "seconds": 7.52,
+        "answer": "The authors discuss several risks and societal downsides associated with this kind of model. These include the potential for the model to generate \"hallucinations\" [1], and the possibility that it might be used to create abusive, fake, or misleading content in news or on social media [1]. Additionally, there are concerns about the model being used for impersonation or to automate the production of spam or phishing content [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 10)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.875,
+          "answer_relevancy": 0.9115474195658514,
+          "context_precision": 0.8333333332916666,
+          "context_recall": 1.0,
+          "factual_correctness": 0.73
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-decoding",
+        "question": "What is the difference between Thorough Decoding and Fast Decoding?",
+        "answerable": true,
+        "seconds": 5.27,
+        "answer": "Thorough Decoding involves running an additional forward pass for each document where the hypothesis does not appear in the beam, multiplying the generator probability with \\( p_\\eta(z|x) \\), and then summing the probabilities across beams for the marginals [1]. This method is more accurate but can be computationally expensive for longer output sequences.\n\nFast Decoding, on the other hand, approximates \\( p_\\theta(y|x,z_i) \\approx 0 \\) for hypotheses \\( y \\) that were not generated during beam search from \\( x \\) and \\( z_i \\). This avoids the need for additional forward passes once the candidate set \\( Y \\) has been generated, making it more efficient [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "documents",
+        "cited": [
+          "papers/rag-lewis-2020.pdf (page 4)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 0.8571428571428571,
+          "answer_relevancy": 0.9702175391355999,
+          "context_precision": 0.99999999995,
+          "context_recall": 1.0,
+          "factual_correctness": 0.67
+        },
+        "judge_failures": []
+      },
+      {
+        "id": "rag-fever",
+        "question": "How accurate is RAG on FEVER fact verification?",
+        "answerable": true,
+        "seconds": 14.37,
+        "answer": "The RAG pipeline, as used in the AIC CTU@FEVER 8 submission, achieved first place in the FEVER 8 shared task [4]. While specific accuracy figures are not provided in the sources, the system demonstrated leading performance in automated fact verification [1].",
+        "refused": false,
+        "grounded": true,
+        "self_check_passed": true,
+        "source": "web",
+        "cited": [
+          "https://arxiv.org/html/2508.04390v1 (arxiv.org)",
+          "https://quantumzeitgeist.com/rag-pipeline-achieves-state-of-the-art-fact-checking-performance-on-fever-benchmark/ (quantumzeitgeist.com)"
+        ],
+        "trace": [
+          "retrieve",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "route",
+          "web_search",
+          "grade",
+          "generate",
+          "self_check",
+          "generate",
+          "self_check"
+        ],
+        "scores": {
+          "faithfulness": 1.0,
+          "answer_relevancy": 0.5445391196162153,
+          "context_precision": 0.0,
+          "context_recall": 0.0,
+          "factual_correctness": 0.33
+        },
+        "judge_failures": []
+      }
+    ]
+  }
+}

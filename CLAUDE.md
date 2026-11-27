@@ -38,6 +38,7 @@ backend/src/agentic_rag/   application package
   agent/graph.py           LangGraph agent: condense, retrieve, grade, reformulate, refuse,
                            generate, self_check; every loop bounded by settings
   agent/verify.py          per-claim citation verification (the self-check)
+  web.py                   WebSearch protocol: keyless metasearch or Tavily (hybrid mode)
   ask_cli.py               `make ask` client for the running API
   ingestion/               loaders -> chunking -> pipeline (+ `python -m` CLI)
   api/                     routers + FastAPI dependencies
@@ -62,6 +63,7 @@ make ask Q="…"  # call POST /ask on the running API
 make eval           # full suite: retrieval + behaviour + Ragas quality -> backend/evals/reports/
 make eval-quick     # same, first 5 questions per set (smoke test, ~2 min)
 make eval-retrieval  # hit@1 / hit@5 / MRR per retrieval mode on the golden set
+make eval-routing    # hybrid fallback router accuracy
 make eval-grading    # relevance-threshold calibration
 make eval-selfcheck  # self-check false alarms vs planted false claims
 make eval-answers    # simple vs agentic end to end (~10 min)

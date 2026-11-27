@@ -119,6 +119,8 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 | `ANSWER_MODE` | `agentic` | `agentic` (LangGraph agent) or `simple` (one retrieve-generate pass) |
 | `RELEVANCE_THRESHOLD` | `0.05` | Reranker score a passage needs to reach the answer step |
 | `SELF_CHECK` | `true` | Verify cited claims after generating |
+| `KNOWLEDGE_MODE` | `documents` | Default for requests: `documents` or `hybrid` (documents first, then web or model) |
+| `TAVILY_API_KEY` | unset | Optional keyed web search; keyless metasearch is used otherwise |
 
 ## Ingestion
 
@@ -232,6 +234,37 @@ not raise headline numbers. Its value shows in the cases behind them:
 - Answers that survive with unsupported claims are flagged instead of presented as verified.
 
 The cost is a longer tail: a revision means a second generation pass.
+
+### Hybrid knowledge (opt-in)
+
+With **Documents + web** selected (`knowledge: "hybrid"`), the agent adds a Corrective RAG
+fallback. The documents are **always searched first**. Only when no passage passes grading, even
+after a reformulated query, or the grounded answer declines, a router chooses the fallback:
+
+- **web**: facts the documents do not cover. Results are cited with links, answered through a
+  separate prompt that treats web content as untrusted data (prompt-injection safety), and
+  self-checked like document answers.
+- **general**: concepts or calculations the model can answer without sources, labelled as
+  unverified model knowledge.
+
+Every answer reports its `source`: `documents`, `web`, `model` or `none`.
+
+A first design routed questions *before* retrieval and sent 2 of 9 documents questions to the web
+("How do I speed up HNSW index builds?"). Routing only after the documents fail makes
+"documents first" hold by construction; the fallback router scores 18/18 on
+`backend/evals/routing.jsonl` (`make eval-routing`).
+
+| (report `20261127-084623`) | documents mode | hybrid |
+| --- | --- | --- |
+| in-docs questions answered from documents | 94% | 94% |
+| out-of-docs questions answered | 0% (declined) | 92% (10 web, 1 model) |
+| faithfulness | 0.905 | 0.925 |
+| latency p50 / p90 | 3.3 s / 7.4 s | 5.1 s / 15.8 s |
+
+Known risks, visible in the saved answers: web snippets can mislead ("Does pgvector support
+DiskANN?" was answered "yes" from a page about a planned feature), keyless web search is
+rate-limited in bursts (set `TAVILY_API_KEY` for a keyed API), and hybrid evals are not fully
+repeatable because the web changes. Documents-only stays the default and the quality baseline.
 
 ## Evaluation
 
