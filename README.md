@@ -166,6 +166,7 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 | `SELF_CHECK` | `true` | Verify cited claims after generating |
 | `KNOWLEDGE_MODE` | `documents` | Default for requests: `documents` or `hybrid` (documents first, then web or model) |
 | `TAVILY_API_KEY` | unset | Optional keyed web search; keyless metasearch is used otherwise |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | unset | Enable Langfuse tracing (`LANGFUSE_HOST` or `LANGFUSE_BASE_URL`, default Langfuse Cloud) |
 
 ## Ingestion
 
@@ -310,6 +311,26 @@ Known risks, visible in the saved answers: web snippets can mislead ("Does pgvec
 DiskANN?" was answered "yes" from a page about a planned feature), keyless web search is
 rate-limited in bursts (set `TAVILY_API_KEY` for a keyed API), and hybrid evals are not fully
 repeatable because the web changes. Documents-only stays the default and the quality baseline.
+
+## Observability
+
+With Langfuse keys in `.env` (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`;
+the free Langfuse Cloud plan works), every question becomes a trace:
+
+```
+answer (agent)                      question, knowledge mode → answer, source, citations
+├─ retrieve (retriever)             10 candidates with locations and scores
+├─ grade (evaluator)                passages kept above the relevance threshold
+├─ generate (chain)
+│  └─ llm (generation)              full prompt, output, model, token usage, latency
+└─ self_check (evaluator)
+   └─ llm (generation) × claims
+scores: grounded · refused · self_check_passed
+```
+
+Each API response carries `trace_url`, shown in the UI as **Open trace**. Without keys, tracing is
+a no-op, so tests and CI need no Langfuse. Traces contain questions, passages and answers; for
+private documents enable masking or self-host Langfuse.
 
 ## Evaluation
 
@@ -457,7 +478,11 @@ Project layout:
 - [x] **Milestone 2: Retrieval quality:** labelled retrieval eval, hybrid search (pgvector + Postgres full-text, reciprocal rank fusion) and a local cross-encoder reranker
 - [x] **Milestone 3: Agentic graph:** follow-up condensing, calibrated passage grading, query reformulation, per-claim self-check, bounded loops, step trace
 - [x] **Milestone 4: Evaluation:** Ragas suite on a versioned dataset with reference answers; faithfulness, answer relevancy, context precision/recall, factual correctness; reports with config snapshots and baseline deltas
-- [ ] **Milestone 5: Production:** containerized deploy, hosted LLM provider, tracing with self-hosted Langfuse
+- [ ] **Milestone 5: Production:**
+  - [x] CI (GitHub Actions), Docker images and one-command compose
+  - [x] Hosted LLM provider (Groq / OpenAI-compatible), CPU-only embeddings and reranker
+  - [x] Tracing with Langfuse
+  - [ ] Free public deployment
 
 ## License
 

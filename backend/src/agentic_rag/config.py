@@ -92,7 +92,11 @@ class Settings(BaseSettings):
     # Tracing (optional): set both keys to send traces to Langfuse (self-hosted or cloud).
     langfuse_public_key: str | None = None
     langfuse_secret_key: SecretStr | None = None
-    langfuse_host: str = "http://localhost:3100"
+    # Accepted as LANGFUSE_HOST or LANGFUSE_BASE_URL (the name Langfuse's setup page shows).
+    langfuse_host: str = Field(
+        default="https://cloud.langfuse.com",
+        validation_alias=AliasChoices("LANGFUSE_HOST", "LANGFUSE_BASE_URL"),
+    )
 
 
 @lru_cache

@@ -39,6 +39,8 @@ backend/src/agentic_rag/   application package
                            generate, self_check; every loop bounded by settings
   agent/verify.py          per-claim citation verification (the self-check)
   web.py                   WebSearch protocol: keyless metasearch or Tavily (hybrid mode)
+  providers.py             build_llm / build_embedder / build_reranker from settings
+  tracing.py               optional Langfuse tracing (no-op without keys); TracedLLM
   ask_cli.py               `make ask` client for the running API
   ingestion/               loaders -> chunking -> pipeline (+ `python -m` CLI)
   api/                     routers + FastAPI dependencies
